@@ -166,6 +166,8 @@
   </div>
 </div>
 
+  <button class="btn" onclick="togglePanel('ai')"><i class="fa-solid fa-robot"></i> AI Co-Pilot</button>
+  
 <!-- Bottom Coordinate Tracker -->
 <div class="hud-bar" id="hud-coords">
   <span id="coords-text">X: 000 | Y: 000</span>
@@ -179,6 +181,27 @@
   <div class="context-menu-item" onclick="clearCurrentSelection()"><i class="fa-solid fa-xmark"></i> Clear Selection</div>
 </div>
 
+  <!-- SIDE PANEL: AI TACTICAL CO-PILOT -->
+<div class="side-panel collapsed" id="panel-ai">
+  <div class="panel-header">
+    <h3><i class="fa-solid fa-robot"></i> Alliance Tactical AI</h3>
+    <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-body">
+    <div class="input-group">
+      <label>Google Gemini API Key (Free)</label>
+      <input type="password" id="gemini-key" placeholder="Paste free AI Studio Key..." />
+    </div>
+    <div id="ai-chat-log" style="height:220px; overflow-y:auto; background:rgba(0,0,0,0.4); padding:8px; font-family:var(--font-mono); font-size:11px; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:4px;">
+      <div style="color:var(--accent-cyan);">[AI System Online]: Ask me about city coordinates, march distances, or strategic targets.</div>
+    </div>
+    <div class="input-row">
+      <input type="text" id="ai-prompt" placeholder="Ask AI tactical questions..." onkeydown="if(event.key==='Enter') askTacticalAI()" />
+      <button class="btn" onclick="askTacticalAI()"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+  
 <!-- SIDE PANEL: CITY DIRECTORY -->
 <div class="side-panel collapsed" id="panel-cities">
   <div class="panel-header">
@@ -888,7 +911,62 @@
     };
     reader.readAsText(file);
   }
+// --- AI TACTICAL ASSISTANT INTEGRATION ---
+  async function askTacticalAI() {
+    const apiKeyInput = document.getElementById('gemini-key');
+    const promptInput = document.getElementById('ai-prompt');
+    const chatLog = document.getElementById('ai-chat-log');
 
+    const apiKey = apiKeyInput.value.trim();
+    const prompt = promptInput.value.trim();
+
+    if (!apiKey) {
+      alert('Please enter a free Google Gemini API key from AI Studio.');
+      return;
+    }
+    if (!prompt) return;
+
+    // Append user query to chat log
+    chatLog.innerHTML += `<div style="color:#fff;"><b>User:</b> ${prompt}</div>`;
+    promptInput.value = '';
+    chatLog.scrollTop = chatLog.scrollHeight;
+
+    // Provide context about map data and current user state
+    const systemContext = `You are an expert military strategist for the game Last Asylum: Plague. 
+Here is the active city database of 84 cities: ${JSON.stringify(CITY_DATABASE)}.
+User's saved paths: ${JSON.stringify(state.paths)}.
+User's drawn zones: ${JSON.stringify(state.zones)}.
+Answer concisely, giving exact X,Y coordinates when relevant.`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemContext}\n\nUser Question: ${prompt}` }] }]
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        chatLog.innerHTML += `<div style="color:var(--accent-red);"><b>Error:</b> ${data.error.message}</div>`;
+      } else {
+        const reply = data.candidates[0].content.parts[0].text;
+        chatLog.innerHTML += `<div style="color:var(--accent-cyan);"><b>AI:</b> ${reply}</div>`;
+      }
+      chatLog.scrollTop = chatLog.scrollHeight;
+    } catch (err) {
+      chatLog.innerHTML += `<div style="color:var(--accent-red);"><b>Error:</b> Unable to reach API. Check network or API Key.</div>`;
+    }
+  }
+
+  // Initial Load
+  renderCities();
+  renderAll();
+</script>
+</body>
+</html>
   // Initial Load
   renderCities();
   renderAll();
