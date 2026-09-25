@@ -455,6 +455,11 @@
     attributionControl: false
   });
 
+  // Dedicated Pane for Grid Lines to sit ABOVE the map image but BELOW city markers
+  map.createPane('gridPane');
+  map.getPane('gridPane').style.zIndex = 350;
+  map.getPane('gridPane').style.pointerEvents = 'none';
+
   L.imageOverlay('map.png', bounds).addTo(map);
   map.fitBounds(bounds);
 
@@ -462,9 +467,10 @@
   for (let i = 0; i <= MAP_SIZE; i++) {
     const isMajor = (i % 5 === 0);
     const lineStyle = {
-      color: isMajor ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.15)',
-      weight: isMajor ? 1.8 : 0.5,
-      interactive: false
+      color: isMajor ? 'rgba(255, 255, 255, 0.65)' : 'rgba(255, 255, 255, 0.25)',
+      weight: isMajor ? 1.8 : 0.6,
+      interactive: false,
+      pane: 'gridPane'
     };
     L.polyline([[0, i], [MAP_SIZE, i]], lineStyle).addTo(map);
     L.polyline([[i, 0], [i, MAP_SIZE]], lineStyle).addTo(map);
