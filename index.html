@@ -24,7 +24,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html { width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text-main); }
 
-    /* Pixel crisp rendering for deep zoom without blurring */
+    /* Pixel crisp rendering for high-level zoom */
     #map { width: 100vw; height: 100vh; background: #050608; }
     .leaflet-tile-container img, .leaflet-image-layer {
       image-rendering: -webkit-optimize-contrast;
@@ -142,7 +142,7 @@
 
 <div id="map"></div>
 
-<!-- Top Navigation Bar -->
+<!-- Top Navigation -->
 <div class="top-bar">
   <div class="top-group">
     <button class="btn" id="btn-box-select" onclick="toggleBoxSelect()"><i class="fa-solid fa-vector-square"></i> Box Select Mode</button>
@@ -166,7 +166,7 @@
   </div>
 </div>
 
-<!-- Bottom Coordinate Tracker HUD -->
+<!-- Bottom Coordinate Tracker -->
 <div class="hud-bar" id="hud-coords">
   <span id="coords-text">X: 000 | Y: 000</span>
   <span id="selection-summary" style="color:var(--accent-gold); display:none;"></span>
@@ -241,27 +241,40 @@
   </div>
 </div>
 
-<!-- SIDE PANEL: TERRITORY BOUNDARIES -->
+<!-- SIDE PANEL: TERRITORY BOUNDARIES & BATCH COORD BORDER -->
 <div class="side-panel collapsed" id="panel-boundaries">
   <div class="panel-header">
-    <h3><i class="fa-solid fa-draw-polygon"></i> Territories</h3>
+    <h3><i class="fa-solid fa-draw-polygon"></i> Territory Sector Borders</h3>
     <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div class="panel-body">
     <div class="input-row">
       <button class="btn" id="btn-draw-poly" onclick="togglePolyDrawing()" style="flex:1;">
-        <i class="fa-solid fa-draw-polygon"></i> Draw Sector
+        <i class="fa-solid fa-draw-polygon"></i> Interactive Click
       </button>
       <button class="btn btn-danger" onclick="clearActivePoly()"><i class="fa-solid fa-trash"></i> Clear</button>
     </div>
-    <div class="input-group">
+
+    <!-- BATCH COORDINATE INPUT SECTION -->
+    <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
+      <label>Batch Coordinate Border</label>
+      <textarea id="batch-poly-coords" rows="4" placeholder="Type or paste coordinates:
+[100, 200], [300, 200], [300, 400], [100, 400]" onkeydown="handleBatchKey(event)"></textarea>
+      <button class="btn" onclick="generateBatchBorder()" style="background:var(--panel-bg); color:var(--accent-gold); border-color:var(--accent-gold);">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Border (Enter)
+      </button>
+    </div>
+
+    <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
       <label>Zone Name & Color</label>
       <input type="text" id="zone-name" placeholder="Alliance Sector" value="Alliance Sector" />
       <input type="color" id="zone-color" value="#00ffcc" style="height:36px; cursor:pointer;" />
     </div>
+
     <button class="btn" onclick="saveActiveZone()" style="background:var(--accent-cyan); color:#000; font-weight:bold;">
-      <i class="fa-solid fa-floppy-disk"></i> Save Zone
+      <i class="fa-solid fa-floppy-disk"></i> Save Zone to Map
     </button>
+    
     <div id="saved-zones-list" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;"></div>
   </div>
 </div>
@@ -315,7 +328,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // --- 84 CITY DATABASE WITH INTEGER COORDINATES ---
+  // --- 84 CITY DATABASE ---
   const CITY_DATABASE = [
     { name: "Fox Glen", lvl: 1, x: 41, y: 485 },
     { name: "Graywolf Vale", lvl: 1, x: 120, y: 370 },
@@ -414,7 +427,7 @@
 
   const map = L.map('map', {
     crs: L.CRS.Simple,
-    maxZoom: 7, // High max zoom allows 10x10 square to fill the screen
+    maxZoom: 7,
     minZoom: -1,
     maxBounds: bounds,
     attributionControl: false
@@ -423,7 +436,7 @@
   L.imageOverlay('map.png', bounds).addTo(map);
   map.fitBounds(bounds);
 
-  // --- CRISP FAINT WHITE 1x1 TILES & HEAVY WHITE 5x5 GRID LINES ---
+  // --- CRISP WHITE 1x1 TILES & HEAVY WHITE 5x5 GRID LINES ---
   for (let i = 0; i <= MAP_SIZE; i++) {
     const isMajor = (i % 5 === 0);
     const lineStyle = {
@@ -457,7 +470,7 @@
     hudCoords.innerText = `X: ${x.toString().padStart(3,'0')} | Y: ${y.toString().padStart(3,'0')}`;
   });
 
-  // --- CLICK & DRAG MULTI-TILE BOX SELECTOR WITH STRICT INTEGER GRID SNAPPING ---
+  // --- CLICK & DRAG MULTI-TILE BOX SELECTOR ---
   let isBoxSelect = false;
   let isDraggingSelect = false;
   let dragStartLatLng = null;
@@ -483,32 +496,23 @@
   map.on('mousemove', function(e) {
     if (!isDraggingSelect || !dragStartLatLng) return;
     
-    // Calculate strict integer tile boundaries (snapped to whole 1x1 grid lines)
-    const rawX1 = Math.round(dragStartLatLng.lng);
-    const rawX2 = Math.round(e.latlng.lng);
-    const rawY1 = Math.round(dragStartLatLng.lat);
-    const rawY2 = Math.round(e.latlng.lat);
+    // Strict integer grid snapping
+    const x1 = Math.min(Math.floor(dragStartLatLng.lng), Math.floor(e.latlng.lng));
+    const x2 = Math.max(Math.ceil(dragStartLatLng.lng), Math.ceil(e.latlng.lng));
+    const y1 = Math.min(Math.floor(dragStartLatLng.lat), Math.floor(e.latlng.lat));
+    const y2 = Math.max(Math.ceil(dragStartLatLng.lat), Math.ceil(e.latlng.lat));
 
-    const x1 = Math.min(rawX1, rawX2);
-    const x2 = Math.max(rawX1, rawX2);
-    const y1 = Math.min(rawY1, rawY2);
-    const y2 = Math.max(rawY1, rawY2);
-
-    // Bounds snap strictly to integer tile grid intersections
     activeSelectionBounds = [[y1, x1], [y2, x2]];
     
     activeSelectionLayer.clearLayers();
     L.rectangle(activeSelectionBounds, {
-      color: '#00ffcc', weight: 2, fillColor: '#00ffcc', fillOpacity: 0.35, interactive: false
+      color: '#00ffcc', weight: 2, fillColor: '#00ffcc', fillOpacity: 0.3
     }).addTo(activeSelectionLayer);
 
-    const tileWidth = Math.abs(x2 - x1);
-    const tileHeight = Math.abs(y2 - y1);
-    const tileCount = Math.max(1, tileWidth * tileHeight);
-
+    const tileCount = (Math.abs(x2 - x1)) * (Math.abs(y2 - y1));
     const summary = document.getElementById('selection-summary');
     summary.style.display = 'inline';
-    summary.innerText = `[Selection: X:${x1}-${x2}, Y:${y1}-${y2} (${tileCount} Tiles)]`;
+    summary.innerText = `[Selected: X:${x1}-${x2}, Y:${y1}-${y2} (${tileCount} Tiles)]`;
   });
 
   map.on('mouseup', function(e) {
@@ -590,7 +594,45 @@
     saveState();
   }
 
-  // --- RENDER CITIES & ANNOTATIONS (STRICT WHOLE-INTEGER BOUNDS) ---
+  // --- BATCH COORDINATE BORDER GENERATOR ---
+  function handleBatchKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      generateBatchBorder();
+    }
+  }
+
+  function generateBatchBorder() {
+    const rawInput = document.getElementById('batch-poly-coords').value;
+    if (!rawInput.trim()) { alert('Please enter or paste a list of coordinates.'); return; }
+
+    // Parse various string formats: [100, 200], 100,200, X: 100 Y: 200, etc.
+    const regex = /(-?\d+(?:\.\d+)?)\s*[\s,:]\s*(-?\d+(?:\.\d+)?)/g;
+    let match;
+    const parsedCoords = [];
+
+    while ((match = regex.exec(rawInput)) !== null) {
+      const x = Math.round(parseFloat(match[1]));
+      const y = Math.round(parseFloat(match[2]));
+      if (!isNaN(x) && !isNaN(y)) {
+        parsedCoords.push([y, x]); // Leaflet uses [Y, X] internally
+      }
+    }
+
+    if (parsedCoords.length < 3) {
+      alert('Valid border requires at least 3 integer coordinate pairs.');
+      return;
+    }
+
+    activePolyCoords = parsedCoords;
+    renderTempPoly();
+
+    // Fit map view to the newly generated border area
+    const polyBounds = L.polygon(activePolyCoords).getBounds();
+    map.fitBounds(polyBounds, { padding: [50, 50] });
+  }
+
+  // --- RENDER CITIES & ANNOTATIONS ---
   let cityMarkersGroup = L.layerGroup().addTo(map);
   let mapElementsLayer = L.layerGroup().addTo(map);
 
@@ -604,16 +646,12 @@
       if (searchQuery && !city.name.toLowerCase().includes(searchQuery.toLowerCase())) return;
 
       let cityBounds;
-      
       if (city.lvl === 7) {
-        // Level 7 Royal City: Exact integer bounds [[448, 448], [552, 552]] (104x104 whole integer tiles)
+        // L7 Royal City: Exact integer bounds 448x448 to 552x552
         cityBounds = [[448, 448], [552, 552]];
       } else {
-        // Level 1-6 Cities: Exact 13x13 whole-integer tile square from [Y-6, X-6] to [Y+7, X+7]
-        cityBounds = [
-          [city.y - 6, city.x - 6],
-          [city.y + 7, city.x + 7]
-        ];
+        // L1-6 Cities: Exact integer 13x13 grid tile footprint
+        cityBounds = [[city.y - 6, city.x - 6], [city.y + 7, city.x + 7]];
       }
 
       const color = LEVEL_COLORS[city.lvl] || '#ffffff';
@@ -626,10 +664,7 @@
         <div style="font-family:var(--font-mono); text-align:center;">
           <span class="lvl-badge lvl-${city.lvl}">LVL ${city.lvl}</span>
           <b>${city.name}</b><br>
-          <span style="font-size:12px; color:#8b949e;">Center: X:${city.x} | Y:${city.y}</span><br>
-          <span style="font-size:11px; color:var(--accent-cyan);">
-            ${city.lvl === 7 ? '104x104 Core Tile Bounds' : '13x13 Integer Tile Grid Box'}
-          </span>
+          <span style="font-size:12px; color:#8b949e;">Center: X:${city.x} | Y:${city.y}</span>
         </div>
       `);
 
@@ -715,10 +750,14 @@
     L.polygon(activePolyCoords, { color: color, fillColor: color, fillOpacity: 0.25 }).addTo(tempPolyLayer);
   }
 
-  function clearActivePoly() { activePolyCoords = []; tempPolyLayer.clearLayers(); }
+  function clearActivePoly() {
+    activePolyCoords = [];
+    tempPolyLayer.clearLayers();
+    document.getElementById('batch-poly-coords').value = '';
+  }
 
   function saveActiveZone() {
-    if (activePolyCoords.length < 3) { alert('Click at least 3 points to define a territory sector.'); return; }
+    if (activePolyCoords.length < 3) { alert('Specify or click at least 3 points to define a territory sector.'); return; }
     state.zones.push({
       id: Date.now().toString(),
       name: document.getElementById('zone-name').value || 'Territory Sector',
@@ -850,7 +889,7 @@
     reader.readAsText(file);
   }
 
-  // Initial Initialization
+  // Initial Load
   renderCities();
   renderAll();
 </script>
