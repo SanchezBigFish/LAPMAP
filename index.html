@@ -51,7 +51,7 @@
       background: var(--panel-bg); border: 1px solid var(--border-color);
       padding: 6px 14px; font-family: var(--font-mono); font-size: 13px;
       color: var(--accent-cyan); border-radius: 4px; backdrop-filter: blur(8px);
-      pointer-events: auto;
+      pointer-events: auto; display: flex; gap: 12px; align-items: center;
     }
 
     /* Side Control Panels */
@@ -88,6 +88,20 @@
     .list-item:hover { border-color: var(--border-color); background: rgba(0,255,204,0.05); }
     .list-info { font-family: var(--font-mono); font-size: 12px; }
 
+    /* Custom Right-Click Context Menu */
+    .context-menu {
+      position: absolute; z-index: 3000; background: var(--panel-bg);
+      border: 1px solid var(--accent-cyan); border-radius: 6px; padding: 6px;
+      display: none; flex-direction: column; gap: 4px; min-width: 180px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.9); backdrop-filter: blur(12px);
+    }
+    .context-menu-item {
+      padding: 8px 12px; font-family: var(--font-mono); font-size: 12px;
+      color: var(--text-main); cursor: pointer; border-radius: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .context-menu-item:hover { background: rgba(0,255,204,0.2); color: var(--accent-cyan); }
+
     /* Modal Overlay */
     .modal {
       position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.8);
@@ -101,13 +115,8 @@
     }
 
     /* Animated Motion Path Stroke */
-    @keyframes dash {
-      to { stroke-dashoffset: -40; }
-    }
-    .animated-path {
-      stroke-dasharray: 10, 10;
-      animation: dash 1.5s linear infinite;
-    }
+    @keyframes dash { to { stroke-dashoffset: -40; } }
+    .animated-path { stroke-dasharray: 10, 10; animation: dash 1.5s linear infinite; }
 
     /* City Level Badges */
     .lvl-badge {
@@ -130,7 +139,9 @@
 <!-- Top Navigation -->
 <div class="top-bar">
   <div class="top-group">
+    <button class="btn" id="btn-box-select" onclick="toggleBoxSelect()"><i class="fa-solid fa-vector-square"></i> Box Select Mode</button>
     <button class="btn" onclick="togglePanel('cities')"><i class="fa-solid fa-city"></i> Cities (84)</button>
+    <button class="btn" onclick="togglePanel('annotations')"><i class="fa-solid fa-note-sticky"></i> Sector Notes</button>
     <button class="btn" onclick="togglePanel('plotter')"><i class="fa-solid fa-route"></i> Path Plotter</button>
     <button class="btn" onclick="togglePanel('boundaries')"><i class="fa-solid fa-draw-polygon"></i> Territories</button>
   </div>
@@ -150,10 +161,20 @@
 </div>
 
 <!-- Bottom Coordinate Tracker -->
-<div class="hud-bar" id="hud-coords">X: 000 | Y: 000</div>
+<div class="hud-bar" id="hud-coords">
+  <span id="coords-text">X: 000 | Y: 000</span>
+  <span id="selection-summary" style="color:var(--accent-gold); display:none;"></span>
+</div>
+
+<!-- RIGHT-CLICK CONTEXT MENU -->
+<div class="context-menu" id="context-menu">
+  <div class="context-menu-item" onclick="openDetailModal()"><i class="fa-solid fa-pen-to-square"></i> Add Detail / Notes</div>
+  <div class="context-menu-item" onclick="copyContextCoords()"><i class="fa-solid fa-copy"></i> Copy Coordinates</div>
+  <div class="context-menu-item" onclick="clearCurrentSelection()"><i class="fa-solid fa-xmark"></i> Clear Selection</div>
+</div>
 
 <!-- SIDE PANEL: CITY DIRECTORY -->
-<div class="side-panel" id="panel-cities">
+<div class="side-panel collapsed" id="panel-cities">
   <div class="panel-header">
     <h3><i class="fa-solid fa-city"></i> City Directory (84)</h3>
     <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
@@ -163,6 +184,17 @@
       <input type="text" id="search-city" placeholder="Search city name..." onkeyup="searchCities(this.value)" />
     </div>
     <div id="city-directory-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+  </div>
+</div>
+
+<!-- SIDE PANEL: ANNOTATIONS / SECTOR NOTES -->
+<div class="side-panel collapsed" id="panel-annotations">
+  <div class="panel-header">
+    <h3><i class="fa-solid fa-note-sticky"></i> Sector Notes & Highlights</h3>
+    <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-body">
+    <div id="annotations-list" style="display:flex; flex-direction:column; gap:8px;"></div>
   </div>
 </div>
 
@@ -182,7 +214,6 @@
         <button class="btn btn-danger" onclick="clearCurrentPath()"><i class="fa-solid fa-trash"></i> Reset</button>
       </div>
     </div>
-
     <div class="input-group">
       <label>Path Label & Color</label>
       <input type="text" id="path-name" placeholder="e.g. Squad March Vector" value="Patrol Vector" />
@@ -194,11 +225,9 @@
         </select>
       </div>
     </div>
-
     <button class="btn" onclick="saveActivePath()" style="background:var(--accent-cyan); color:#000; font-weight:bold;">
       <i class="fa-solid fa-floppy-disk"></i> Save Path
     </button>
-
     <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
       <label>Saved Tactical Paths</label>
       <div id="saved-paths-list" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -231,12 +260,34 @@
   </div>
 </div>
 
+<!-- DETAIL / NOTE MODAL -->
+<div class="modal" id="detail-modal">
+  <div class="modal-content">
+    <h3 style="font-family:var(--font-mono); color:var(--accent-cyan);"><i class="fa-solid fa-pen-to-square"></i> Add Sector Details / Notes</h3>
+    <div class="input-group">
+      <label>Title / Label</label>
+      <input type="text" id="detail-title" placeholder="e.g. Alliance Staging Area" />
+    </div>
+    <div class="input-group">
+      <label>Highlight Color</label>
+      <input type="color" id="detail-color" value="#ffcc00" style="height:38px; cursor:pointer;" />
+    </div>
+    <div class="input-group">
+      <label>Detailed Notes & Intelligence</label>
+      <textarea id="detail-notes" rows="4" placeholder="Enter tactical information, squad assignments, or resource counts..."></textarea>
+    </div>
+    <div class="input-row">
+      <button class="btn" onclick="saveDetailNote()" style="flex:1; background:var(--accent-cyan); color:#000; font-weight:bold;">Save Notes</button>
+      <button class="btn btn-danger" onclick="closeDetailModal()" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- EXPORT / IMPORT MODAL -->
 <div class="modal" id="data-modal">
   <div class="modal-content">
     <h3 style="font-family:var(--font-mono); color:var(--accent-cyan);"><i class="fa-solid fa-share-nodes"></i> Alliance Data Hub</h3>
-    <p style="font-size:12px; color:#8b949e;">Share your custom paths, boundaries, and added pins with alliance members.</p>
-    
+    <p style="font-size:12px; color:#8b949e;">Share your custom paths, boundaries, and sector notes with alliance members.</p>
     <div class="input-group">
       <label>Quick Clipboard Sync</label>
       <div class="input-row">
@@ -244,7 +295,6 @@
         <button class="btn" onclick="pasteDataFromClipboard()" style="flex:1;"><i class="fa-solid fa-paste"></i> Paste & Load</button>
       </div>
     </div>
-
     <div class="input-group">
       <label>File Export / Import</label>
       <div class="input-row">
@@ -253,7 +303,6 @@
         <button class="btn" onclick="document.getElementById('file-import').click()" style="flex:1;"><i class="fa-solid fa-upload"></i> Upload JSON</button>
       </div>
     </div>
-
     <button class="btn btn-danger" onclick="closeDataModal()" style="margin-top:8px;">Close</button>
   </div>
 </div>
@@ -351,59 +400,177 @@
     { name: "Lamp Pavilion", lvl: 1, x: 849, y: 31 }
   ];
 
-  // LEVEL COLOR MAPPING
-  const LEVEL_COLORS = {
-    7: '#ff0055', // Royal City
-    6: '#ff6600', // Fortresses
-    5: '#9900ff', // Temples
-    4: '#0099ff',
-    3: '#00cc66',
-    2: '#cccc00',
-    1: '#888888'
-  };
+  const LEVEL_COLORS = { 7: '#ff0055', 6: '#ff6600', 5: '#9900ff', 4: '#0099ff', 3: '#00cc66', 2: '#cccc00', 1: '#888888' };
 
   // --- MAP CONFIGURATION ---
   const MAP_SIZE = 1000;
   const bounds = [[0, 0], [MAP_SIZE, MAP_SIZE]];
 
   const map = L.map('map', {
-    crs: L.CRS.Simple,
-    maxZoom: 4,
-    minZoom: -1,
-    maxBounds: bounds,
-    attributionControl: false
+    crs: L.CRS.Simple, maxZoom: 4, minZoom: -1, maxBounds: bounds, attributionControl: false
   });
 
   L.imageOverlay('map.png', bounds).addTo(map);
   map.fitBounds(bounds);
 
-  // Grid Lines (100px Intervals)
-  for (let i = 0; i <= MAP_SIZE; i += 100) {
-    L.polyline([[0, i], [MAP_SIZE, i]], { color: 'rgba(255,255,255,0.15)', weight: 1 }).addTo(map);
-    L.polyline([[i, 0], [i, MAP_SIZE]], { color: 'rgba(255,255,255,0.15)', weight: 1 }).addTo(map);
+  // --- FAINT 1x1 TILES & HEAVY 5x5 GRID LINES ---
+  for (let i = 0; i <= MAP_SIZE; i++) {
+    const isMajor = (i % 5 === 0);
+    const lineStyle = {
+      color: isMajor ? 'rgba(0, 255, 204, 0.35)' : 'rgba(255, 255, 255, 0.05)',
+      weight: isMajor ? 1.5 : 0.5,
+      interactive: false
+    };
+    L.polyline([[0, i], [MAP_SIZE, i]], lineStyle).addTo(map);
+    L.polyline([[i, 0], [i, MAP_SIZE]], lineStyle).addTo(map);
   }
 
   // --- STATE STORAGE ---
   let state = {
     zones: JSON.parse(localStorage.getItem('asylum_zones')) || [],
-    paths: JSON.parse(localStorage.getItem('asylum_paths')) || []
+    paths: JSON.parse(localStorage.getItem('asylum_paths')) || [],
+    annotations: JSON.parse(localStorage.getItem('asylum_annotations')) || []
   };
 
   function saveState() {
     localStorage.setItem('asylum_zones', JSON.stringify(state.zones));
     localStorage.setItem('asylum_paths', JSON.stringify(state.paths));
+    localStorage.setItem('asylum_annotations', JSON.stringify(state.annotations));
     renderAll();
   }
 
   // --- HUD TRACKER ---
-  const hudCoords = document.getElementById('hud-coords');
+  const hudCoords = document.getElementById('coords-text');
   map.on('mousemove', function(e) {
     const x = Math.round(e.latlng.lng);
     const y = Math.round(e.latlng.lat);
     hudCoords.innerText = `X: ${x.toString().padStart(3,'0')} | Y: ${y.toString().padStart(3,'0')}`;
   });
 
-  // --- RENDER CITIES AS EXACT SQUARE BOUNDS ---
+  // --- CLICK & DRAG MULTI-TILE BOX SELECTOR ---
+  let isBoxSelect = false;
+  let isDraggingSelect = false;
+  let dragStartLatLng = null;
+  let activeSelectionLayer = L.layerGroup().addTo(map);
+  let activeSelectionBounds = null;
+
+  function toggleBoxSelect() {
+    isBoxSelect = !isBoxSelect;
+    document.getElementById('btn-box-select').classList.toggle('active', isBoxSelect);
+    map.getContainer().style.cursor = isBoxSelect ? 'crosshair' : '';
+    if (isBoxSelect) map.dragging.disable();
+    else map.dragging.enable();
+  }
+
+  map.on('mousedown', function(e) {
+    if (isBoxSelect || e.originalEvent.shiftKey) {
+      isDraggingSelect = true;
+      dragStartLatLng = e.latlng;
+      map.dragging.disable();
+    }
+  });
+
+  map.on('mousemove', function(e) {
+    if (!isDraggingSelect || !dragStartLatLng) return;
+    
+    const x1 = Math.min(Math.round(dragStartLatLng.lng), Math.round(e.latlng.lng));
+    const x2 = Math.max(Math.round(dragStartLatLng.lng), Math.round(e.latlng.lng));
+    const y1 = Math.min(Math.round(dragStartLatLng.lat), Math.round(e.latlng.lat));
+    const y2 = Math.max(Math.round(dragStartLatLng.lat), Math.round(e.latlng.lat));
+
+    activeSelectionBounds = [[y1, x1], [y2, x2]];
+    
+    activeSelectionLayer.clearLayers();
+    L.rectangle(activeSelectionBounds, {
+      color: '#00ffcc', weight: 2, fillColor: '#00ffcc', fillOpacity: 0.3
+    }).addTo(activeSelectionLayer);
+
+    const tileCount = (Math.abs(x2 - x1) + 1) * (Math.abs(y2 - y1) + 1);
+    const summary = document.getElementById('selection-summary');
+    summary.style.display = 'inline';
+    summary.innerText = `[Selected: X:${x1}-${x2}, Y:${y1}-${y2} (${tileCount} Tiles)]`;
+  });
+
+  map.on('mouseup', function(e) {
+    if (isDraggingSelect) {
+      isDraggingSelect = false;
+      if (!isBoxSelect) map.dragging.enable();
+    }
+  });
+
+  function clearCurrentSelection() {
+    activeSelectionBounds = null;
+    activeSelectionLayer.clearLayers();
+    document.getElementById('selection-summary').style.display = 'none';
+    hideContextMenu();
+  }
+
+  // --- RIGHT CLICK CONTEXT MENU ---
+  const contextMenu = document.getElementById('context-menu');
+  let contextCoords = null;
+
+  map.on('contextmenu', function(e) {
+    e.originalEvent.preventDefault();
+    contextCoords = [Math.round(e.latlng.lng), Math.round(e.latlng.lat)];
+    
+    contextMenu.style.display = 'flex';
+    contextMenu.style.left = `${e.originalEvent.clientX}px`;
+    contextMenu.style.top = `${e.originalEvent.clientY}px`;
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!contextMenu.contains(e.target)) hideContextMenu();
+  });
+
+  function hideContextMenu() { contextMenu.style.display = 'none'; }
+
+  function copyContextCoords() {
+    if (activeSelectionBounds) {
+      navigator.clipboard.writeText(JSON.stringify(activeSelectionBounds));
+      alert(`Copied Selection Bounds to clipboard!`);
+    } else if (contextCoords) {
+      navigator.clipboard.writeText(`[${contextCoords[1]}, ${contextCoords[0]}]`);
+      alert(`Copied X: ${contextCoords[0]}, Y: ${contextCoords[1]}`);
+    }
+    hideContextMenu();
+  }
+
+  // --- DETAIL & ANNOTATION SYSTEM ---
+  function openDetailModal() {
+    hideContextMenu();
+    document.getElementById('detail-modal').classList.add('active');
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detail-modal').classList.remove('active');
+  }
+
+  function saveDetailNote() {
+    const title = document.getElementById('detail-title').value || 'Tactical Sector';
+    const color = document.getElementById('detail-color').value;
+    const notes = document.getElementById('detail-notes').value;
+
+    let targetBounds = activeSelectionBounds;
+    if (!targetBounds && contextCoords) {
+      targetBounds = [[contextCoords[1] - 1, contextCoords[0] - 1], [contextCoords[1] + 1, contextCoords[0] + 1]];
+    }
+
+    if (!targetBounds) { alert('No tile or area selected.'); return; }
+
+    state.annotations.push({
+      id: Date.now().toString(),
+      title: title,
+      color: color,
+      notes: notes,
+      bounds: targetBounds
+    });
+
+    closeDetailModal();
+    clearCurrentSelection();
+    saveState();
+  }
+
+  // --- RENDER CITIES & ANNOTATIONS ---
   let cityMarkersGroup = L.layerGroup().addTo(map);
   let mapElementsLayer = L.layerGroup().addTo(map);
 
@@ -417,42 +584,27 @@
       if (searchQuery && !city.name.toLowerCase().includes(searchQuery.toLowerCase())) return;
 
       let cityBounds;
-      
       if (city.lvl === 7) {
-        // Level 7: Exact X: 448 to 552, Y: 448 to 552 (105x105 inclusive)
         cityBounds = [[448, 448], [552, 552]];
       } else {
-        // Levels 1-6: 13x13 Square Centered on [X, Y]
         const halfSize = 6.5;
-        cityBounds = [
-          [city.y - halfSize, city.x - halfSize],
-          [city.y + halfSize, city.x + halfSize]
-        ];
+        cityBounds = [[city.y - halfSize, city.x - halfSize], [city.y + halfSize, city.x + halfSize]];
       }
 
       const color = LEVEL_COLORS[city.lvl] || '#ffffff';
 
-      // Draw Square Boundary Polygon
       const citySquare = L.rectangle(cityBounds, {
-        color: color,
-        weight: city.lvl >= 6 ? 2 : 1,
-        fillColor: color,
-        fillOpacity: city.lvl === 7 ? 0.35 : 0.25
+        color: color, weight: city.lvl >= 6 ? 2 : 1, fillColor: color, fillOpacity: city.lvl === 7 ? 0.35 : 0.25
       }).addTo(cityMarkersGroup);
 
-      // Popup
       citySquare.bindPopup(`
         <div style="font-family:var(--font-mono); text-align:center;">
           <span class="lvl-badge lvl-${city.lvl}">LVL ${city.lvl}</span>
           <b>${city.name}</b><br>
-          <span style="font-size:12px; color:#8b949e;">Center: X:${city.x} | Y:${city.y}</span><br>
-          <span style="font-size:11px; color:var(--accent-cyan);">
-            ${city.lvl === 7 ? 'Bounds: [448, 448] to [552, 552]' : '13x13 Sector Tile'}
-          </span>
+          <span style="font-size:12px; color:#8b949e;">Center: X:${city.x} | Y:${city.y}</span>
         </div>
       `);
 
-      // Directory Entry
       cityList.innerHTML += `
         <div class="list-item" onclick="jumpToCity(${city.x}, ${city.y})" style="cursor:pointer;">
           <div class="list-info">
@@ -465,17 +617,9 @@
     });
   }
 
-  function jumpToCity(x, y) {
-    map.setView([y, x], 2);
-  }
-
-  function filterCitiesByLevel(lvl) {
-    renderCities(lvl, document.getElementById('search-city').value);
-  }
-
-  function searchCities(query) {
-    renderCities(document.getElementById('filter-level').value, query);
-  }
+  function jumpToCity(x, y) { map.setView([y, x], 2); }
+  function filterCitiesByLevel(lvl) { renderCities(lvl, document.getElementById('search-city').value); }
+  function searchCities(query) { renderCities(document.getElementById('filter-level').value, query); }
 
   // --- TACTICAL PATH PLOTTER ENGINE ---
   let isPathDrawing = false;
@@ -507,17 +651,10 @@
     if (activePathCoords.length === 0) return;
     const color = document.getElementById('path-color').value;
     const style = document.getElementById('path-style').value;
-
-    L.polyline(activePathCoords, {
-      color: color, weight: 3, opacity: 0.9,
-      className: style === 'animated' ? 'animated-path' : ''
-    }).addTo(tempPathLayer);
+    L.polyline(activePathCoords, { color: color, weight: 3, opacity: 0.9, className: style === 'animated' ? 'animated-path' : '' }).addTo(tempPathLayer);
   }
 
-  function clearCurrentPath() {
-    activePathCoords = [];
-    tempPathLayer.clearLayers();
-  }
+  function clearCurrentPath() { activePathCoords = []; tempPathLayer.clearLayers(); }
 
   function saveActivePath() {
     if (activePathCoords.length < 2) { alert('Plot at least 2 points to save a path.'); return; }
@@ -550,10 +687,7 @@
     L.polygon(activePolyCoords, { color: color, fillColor: color, fillOpacity: 0.25 }).addTo(tempPolyLayer);
   }
 
-  function clearActivePoly() {
-    activePolyCoords = [];
-    tempPolyLayer.clearLayers();
-  }
+  function clearActivePoly() { activePolyCoords = []; tempPolyLayer.clearLayers(); }
 
   function saveActiveZone() {
     if (activePolyCoords.length < 3) { alert('Click at least 3 points to define a territory sector.'); return; }
@@ -572,7 +706,33 @@
   function renderAll() {
     mapElementsLayer.clearLayers();
 
-    // 1. Render Zones
+    // Render Annotations / Detail Notes
+    const notesList = document.getElementById('annotations-list');
+    notesList.innerHTML = '';
+    state.annotations.forEach(ann => {
+      const rect = L.rectangle(ann.bounds, {
+        color: ann.color, weight: 2, fillColor: ann.color, fillOpacity: 0.35
+      }).addTo(mapElementsLayer);
+
+      rect.bindPopup(`
+        <div style="font-family:var(--font-mono);">
+          <b style="color:${ann.color};">${ann.title}</b><br>
+          <p style="font-size:12px; margin-top:4px;">${ann.notes}</p>
+        </div>
+      `);
+
+      notesList.innerHTML += `
+        <div class="list-item">
+          <div class="list-info">
+            <b style="color:${ann.color};">${ann.title}</b>
+            <p style="font-size:11px; color:#8b949e;">${ann.notes.substring(0, 30)}...</p>
+          </div>
+          <button class="btn btn-danger" onclick="deleteAnnotation('${ann.id}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+    });
+
+    // Render Zones
     const zonesList = document.getElementById('saved-zones-list');
     zonesList.innerHTML = '';
     state.zones.forEach(zone => {
@@ -585,13 +745,12 @@
       `;
     });
 
-    // 2. Render Paths
+    // Render Paths
     const pathsList = document.getElementById('saved-paths-list');
     pathsList.innerHTML = '';
     state.paths.forEach(p => {
       L.polyline(p.coords, {
-        color: p.color, weight: 3, opacity: 0.9,
-        className: p.style === 'animated' ? 'animated-path' : ''
+        color: p.color, weight: 3, opacity: 0.9, className: p.style === 'animated' ? 'animated-path' : ''
       }).addTo(mapElementsLayer);
 
       pathsList.innerHTML += `
@@ -603,6 +762,7 @@
     });
   }
 
+  function deleteAnnotation(id) { state.annotations = state.annotations.filter(a => a.id !== id); saveState(); }
   function deleteZone(id) { state.zones = state.zones.filter(z => z.id !== id); saveState(); }
   function deletePath(id) { state.paths = state.paths.filter(p => p.id !== id); saveState(); }
 
