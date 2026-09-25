@@ -24,7 +24,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html { width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text-main); }
 
+    /* Pixel crisp rendering for high-level zoom */
     #map { width: 100vw; height: 100vh; background: #050608; }
+    .leaflet-tile-container img, .leaflet-image-layer {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+    }
 
     /* Top Navigation Bar */
     .top-bar {
@@ -407,18 +413,22 @@
   const bounds = [[0, 0], [MAP_SIZE, MAP_SIZE]];
 
   const map = L.map('map', {
-    crs: L.CRS.Simple, maxZoom: 4, minZoom: -1, maxBounds: bounds, attributionControl: false
+    crs: L.CRS.Simple,
+    maxZoom: 7, // High max zoom allows a 10x10 square to fill the entire screen
+    minZoom: -1,
+    maxBounds: bounds,
+    attributionControl: false
   });
 
   L.imageOverlay('map.png', bounds).addTo(map);
   map.fitBounds(bounds);
 
-  // --- FAINT 1x1 TILES & HEAVY 5x5 GRID LINES ---
+  // --- FAINT WHITE 1x1 TILES & HEAVY WHITE 5x5 GRID LINES ---
   for (let i = 0; i <= MAP_SIZE; i++) {
     const isMajor = (i % 5 === 0);
     const lineStyle = {
-      color: isMajor ? 'rgba(0, 255, 204, 0.35)' : 'rgba(255, 255, 255, 0.05)',
-      weight: isMajor ? 1.5 : 0.5,
+      color: isMajor ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.15)',
+      weight: isMajor ? 1.8 : 0.5,
       interactive: false
     };
     L.polyline([[0, i], [MAP_SIZE, i]], lineStyle).addTo(map);
@@ -617,7 +627,7 @@
     });
   }
 
-  function jumpToCity(x, y) { map.setView([y, x], 2); }
+  function jumpToCity(x, y) { map.setView([y, x], 4); }
   function filterCitiesByLevel(lvl) { renderCities(lvl, document.getElementById('search-city').value); }
   function searchCities(query) { renderCities(document.getElementById('filter-level').value, query); }
 
