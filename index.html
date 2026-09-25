@@ -2,893 +2,655 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Last Asylum: Plague - Tactical Interactive Map & Territory Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Last Asylum: Plague - Tactical Command Map</title>
   
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Google Fonts: Orbitron & Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            apoc: {
-              bg: '#0a0d0f',
-              panel: '#121619',
-              border: '#1f2933',
-              green: '#00ff9d',
-              red: '#ff3366',
-              gold: '#ffcc00',
-              cyan: '#00e5ff',
-              purple: '#b026ff',
-              text: '#e2e8f0'
-            }
-          },
-          fontFamily: {
-            orbitron: ['Orbitron', 'sans-serif'],
-            sans: ['Inter', 'sans-serif']
-          }
-        }
-      }
-    }
-  </script>
-
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #0a0d0f;
-      color: #e2e8f0;
-      font-family: 'Inter', sans-serif;
-      overflow: hidden;
-      user-select: none;
+    :root {
+      --bg-dark: #0a0c10;
+      --panel-bg: rgba(13, 17, 23, 0.92);
+      --border-color: rgba(0, 255, 204, 0.25);
+      --text-main: #e6edf3;
+      --accent-cyan: #00ffcc;
+      --accent-red: #ff3366;
+      --accent-gold: #ffcc00;
+      --accent-purple: #9933ff;
+      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
     }
 
-    #map {
-      width: 100vw;
-      height: 100vh;
-      background: #080a0c;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text-main); }
 
-    /* Custom Leaflet Controls Styling */
-    .leaflet-control-layers {
-      background: rgba(18, 22, 25, 0.95) !important;
-      border: 1px solid #1f2933 !important;
-      color: #e2e8f0 !important;
-      border-radius: 8px !important;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
-      backdrop-filter: blur(8px);
-      padding: 8px 12px !important;
-      font-family: 'Inter', sans-serif !important;
-    }
+    #map { width: 100vw; height: 100vh; background: #050608; }
 
-    .leaflet-control-layers-overlays label {
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      margin-bottom: 6px !important;
-      cursor: pointer !important;
-      font-size: 12px !important;
-      font-weight: 500 !important;
-    }
-
-    .leaflet-control-layers-overlays input {
-      accent-color: #00ff9d !important;
-      width: 15px;
-      height: 15px;
-      cursor: pointer;
-    }
-
-    /* Custom Marker Badges */
-    .custom-badge {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      color: #000;
-      font-size: 13px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.8), inset 0 0 4px rgba(255,255,255,0.4);
-      border: 2px solid rgba(255,255,255,0.8);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .custom-badge:hover {
-      transform: scale(1.2);
-      z-index: 1000 !important;
-    }
-
-    .badge-safehouse { background: #00ff9d; box-shadow: 0 0 15px rgba(0,255,157,0.6); }
-    .badge-loot { background: #ffcc00; box-shadow: 0 0 15px rgba(255,204,0,0.6); }
-    .badge-boss { background: #ff3366; color: #fff; box-shadow: 0 0 15px rgba(255,51,102,0.8); }
-    .badge-quest { background: #00e5ff; box-shadow: 0 0 15px rgba(0,229,255,0.6); }
-    .badge-custom { background: #b026ff; color: #fff; box-shadow: 0 0 15px rgba(176,38,255,0.8); }
-    .badge-vertex { background: #ffffff; color: #000; border: 2px solid #00ff9d; box-shadow: 0 0 8px #00ff9d; }
-
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #0a0d0f; }
-    ::-webkit-scrollbar-thumb { background: #1f2933; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00ff9d; }
-
-    /* Leaflet Tooltips & Popups */
-    .leaflet-popup-content-wrapper {
-      background: rgba(18, 22, 25, 0.95) !important;
-      border: 1px solid #1f2933 !important;
-      color: #e2e8f0 !important;
-      border-radius: 8px !important;
-      box-shadow: 0 15px 30px rgba(0,0,0,0.9) !important;
-      backdrop-filter: blur(10px);
-      padding: 4px !important;
-    }
-    .leaflet-popup-tip { background: rgba(18, 22, 25, 0.95) !important; }
-
-    .tactical-tooltip {
-      background: rgba(10, 13, 15, 0.9) !important;
-      border: 1px solid #00ff9d !important;
-      color: #ffffff !important;
-      font-family: 'Orbitron', monospace !important;
-      font-size: 11px !important;
-      border-radius: 4px !important;
-      padding: 4px 8px !important;
-      box-shadow: 0 0 10px rgba(0, 255, 157, 0.3) !important;
-    }
-
-    /* Scanline atmospheric overlay */
-    .scanlines {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-      background-size: 100% 4px;
-      z-index: 500;
+    /* Top Navigation Bar */
+    .top-bar {
+      position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000;
+      display: flex; gap: 8px; align-items: center; justify-content: space-between;
       pointer-events: none;
     }
+    .top-group { display: flex; gap: 8px; pointer-events: auto; }
 
-    /* Drawing cursor state */
-    .drawing-active {
-      cursor: crosshair !important;
+    .btn {
+      background: var(--panel-bg); border: 1px solid var(--border-color); color: var(--accent-cyan);
+      padding: 8px 14px; font-size: 13px; font-family: var(--font-mono); border-radius: 4px;
+      cursor: pointer; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn:hover { background: rgba(0, 255, 204, 0.15); border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0,255,204,0.3); }
+    .btn.active { background: var(--accent-cyan); color: #000; font-weight: bold; }
+    .btn-danger { color: var(--accent-red); border-color: rgba(255, 51, 102, 0.3); }
+    .btn-danger:hover { background: rgba(255, 51, 102, 0.2); border-color: var(--accent-red); }
+
+    /* HUD Controls & Coordinates Bar */
+    .hud-bar {
+      position: absolute; bottom: 12px; left: 12px; z-index: 1000;
+      background: var(--panel-bg); border: 1px solid var(--border-color);
+      padding: 6px 14px; font-family: var(--font-mono); font-size: 13px;
+      color: var(--accent-cyan); border-radius: 4px; backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+
+    /* Side Control Panels */
+    .side-panel {
+      position: absolute; top: 60px; right: 12px; bottom: 50px; width: 340px; z-index: 1000;
+      background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px;
+      backdrop-filter: blur(12px); display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8); transition: transform 0.3s ease;
+    }
+    .side-panel.collapsed { transform: translateX(360px); }
+
+    .panel-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(0, 255, 204, 0.05);
+    }
+    .panel-header h3 { font-family: var(--font-mono); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-cyan); }
+    .panel-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: flex-start; flex-direction: column; gap: 16px; }
+
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-group label { font-size: 11px; font-family: var(--font-mono); color: #8b949e; text-transform: uppercase; }
+    .input-row { display: flex; gap: 8px; }
+    
+    input, select, textarea {
+      background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--text-main);
+      padding: 8px; font-family: var(--font-mono); font-size: 12px; border-radius: 4px; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-cyan); }
+
+    .list-item {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 4px; padding: 10px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .list-item:hover { border-color: var(--border-color); }
+    .list-info { font-family: var(--font-mono); font-size: 12px; }
+    .list-actions { display: flex; gap: 6px; }
+
+    /* Modal Overlay */
+    .modal {
+      position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.8);
+      display: none; justify-content: center; align-items: center; backdrop-filter: blur(4px);
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: var(--bg-dark); border: 1px solid var(--accent-cyan); border-radius: 8px;
+      width: 480px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 0 20px rgba(0,255,204,0.2);
+    }
+
+    /* Animated Motion Path Stroke */
+    @keyframes dash {
+      to { stroke-dashoffset: -40; }
+    }
+    .animated-path {
+      stroke-dasharray: 10, 10;
+      animation: dash 1.5s linear infinite;
     }
   </style>
 </head>
-<body class="bg-apoc-bg text-apoc-text font-sans antialiased">
+<body>
 
-  <!-- Scanline atmosphere layer -->
-  <div class="scanlines absolute inset-0 pointer-events-none"></div>
+<div id="map"></div>
 
-  <!-- Top Header Bar -->
-  <header class="absolute top-0 left-0 right-0 h-14 bg-apoc-panel/90 border-b border-apoc-border/80 z-[1000] flex items-center justify-between px-4 backdrop-blur-md">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-apoc-green/10 border border-apoc-green/40 flex items-center justify-center text-apoc-green">
-        <i class="fa-solid fa-biohazard text-lg animate-pulse"></i>
+<!-- Top Navigation -->
+<div class="top-bar">
+  <div class="top-group">
+    <button class="btn" onclick="togglePanel('plotter')"><i class="fa-solid fa-route"></i> Path Plotter</button>
+    <button class="btn" onclick="togglePanel('boundaries')"><i class="fa-solid fa-draw-polygon"></i> Territories</button>
+    <button class="btn" onclick="togglePanel('pins')"><i class="fa-solid fa-location-dot"></i> Markers</button>
+  </div>
+  <div class="top-group">
+    <button class="btn" onclick="openDataModal()"><i class="fa-solid fa-share-nodes"></i> Export / Import</button>
+  </div>
+</div>
+
+<!-- Bottom Coordinate Tracker -->
+<div class="hud-bar" id="hud-coords">X: 000 | Y: 000</div>
+
+<!-- SIDE PANEL: TACTICAL PATH & PATTERN PLOTTER -->
+<div class="side-panel" id="panel-plotter">
+  <div class="panel-header">
+    <h3><i class="fa-solid fa-route"></i> Tactical Path Plotter</h3>
+    <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-body">
+    <div class="input-group">
+      <label>Plotting Mode</label>
+      <div class="input-row">
+        <button class="btn" id="btn-draw-path" onclick="togglePathDrawing()" style="flex:1;">
+          <i class="fa-solid fa-pen-nib"></i> Click-to-Plot
+        </button>
+        <button class="btn btn-danger" onclick="clearCurrentPath()"><i class="fa-solid fa-trash"></i> Reset</button>
       </div>
-      <div>
-        <h1 class="font-orbitron font-extrabold text-xs sm:text-base tracking-wider text-white">LAST ASYLUM: <span class="text-apoc-green">PLAGUE</span></h1>
-        <p class="text-[10px] text-gray-400 font-mono hidden md:block">GRID MAP v3.0 // TERRITORY & BOUNDARY SYSTEM</p>
+    </div>
+
+    <div class="input-group">
+      <label>Path Label & Color</label>
+      <input type="text" id="path-name" placeholder="e.g. Squad Alpha March Route" value="Patrol Vector" />
+      <div class="input-row">
+        <input type="color" id="path-color" value="#00ffcc" style="height:36px; cursor:pointer;" />
+        <select id="path-style">
+          <option value="solid">Solid Line</option>
+          <option value="animated">Animated March Vector</option>
+        </select>
       </div>
     </div>
 
-    <!-- Toolbar Buttons -->
-    <div class="flex items-center gap-2">
-      <!-- Draw Boundary Toggle Button -->
-      <button id="drawModeBtn" onclick="toggleDrawMode()" class="px-3 py-1.5 rounded-md bg-apoc-panel border border-apoc-border hover:border-apoc-green/60 text-xs font-mono text-gray-300 hover:text-apoc-green transition flex items-center gap-2">
-        <i class="fa-solid fa-draw-polygon text-apoc-green"></i>
-        <span class="hidden sm:inline">DRAW BOUNDARY</span>
-      </button>
-
-      <button onclick="toggleJumpWidget()" class="px-3 py-1.5 rounded-md bg-apoc-panel border border-apoc-border hover:border-apoc-cyan/60 text-xs font-mono text-gray-300 hover:text-apoc-cyan transition flex items-center gap-2">
-        <i class="fa-solid fa-crosshairs text-apoc-cyan"></i>
-        <span class="hidden sm:inline">JUMP TO COORDS</span>
-      </button>
-
-      <button onclick="toggleSidebar()" class="px-3 py-1.5 rounded-md bg-apoc-panel border border-apoc-border hover:border-apoc-purple/60 text-xs font-mono text-gray-300 hover:text-apoc-purple transition flex items-center gap-2">
-        <i class="fa-solid fa-database text-apoc-purple"></i>
-        <span class="hidden sm:inline">DATABASE</span>
-      </button>
+    <!-- Pattern Generators -->
+    <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
+      <label>Automated Pattern Generator</label>
+      <select id="pattern-type" onchange="updatePatternUI()">
+        <option value="lawnmower">Patrol Grid (Lawn Mower)</option>
+        <option value="rings">Concentric Search Rings</option>
+        <option value="starburst">Radial Outpost Recon</option>
+      </select>
     </div>
-  </header>
 
-  <!-- Map Container -->
-  <div id="map"></div>
-
-  <!-- Drawing Mode HUD Controls Floating Widget -->
-  <div id="drawHud" class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-[1000] bg-apoc-panel/95 border border-apoc-green/60 rounded-xl px-4 py-2.5 shadow-2xl backdrop-blur-md flex items-center gap-3 font-mono text-xs">
-    <div class="flex items-center gap-2">
-      <span class="w-2.5 h-2.5 rounded-full bg-apoc-green animate-ping"></span>
-      <span class="font-orbitron font-bold text-apoc-green">DRAWING BOUNDARY:</span>
+    <div class="input-row">
+      <div class="input-group" style="flex:1;">
+        <label>Center X</label>
+        <input type="number" id="pat-x" value="500" min="0" max="1000" />
+      </div>
+      <div class="input-group" style="flex:1;">
+        <label>Center Y</label>
+        <input type="number" id="pat-y" value="500" min="0" max="1000" />
+      </div>
     </div>
+
+    <div class="input-row">
+      <div class="input-group" style="flex:1;">
+        <label>Size / Radius</label>
+        <input type="number" id="pat-size" value="200" step="10" />
+      </div>
+      <div class="input-group" style="flex:1;">
+        <label>Passes / Rings</label>
+        <input type="number" id="pat-passes" value="4" min="1" max="10" />
+      </div>
+    </div>
+
+    <button class="btn" onclick="generatePattern()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Pattern</button>
+
+    <!-- Batch Coordinate String Input -->
+    <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
+      <label>Batch Coordinate Input</label>
+      <textarea id="batch-coords" rows="2" placeholder="Paste coords: [100, 200], [300, 400], [500, 800]"></textarea>
+      <button class="btn" onclick="plotBatchCoordinates()"><i class="fa-solid fa-file-import"></i> Plot Coordinates</button>
+    </div>
+
+    <button class="btn" onclick="saveActivePath()" style="background:var(--accent-cyan); color:#000; font-weight:bold; margin-top:8px;">
+      <i class="fa-solid fa-floppy-disk"></i> Save Path to Map
+    </button>
+
+    <!-- Saved Paths List -->
+    <div class="input-group" style="border-top:1px solid var(--border-color); padding-top:12px;">
+      <label>Saved Tactical Paths</label>
+      <div id="saved-paths-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SIDE PANEL: TERRITORY BOUNDARIES -->
+<div class="side-panel collapsed" id="panel-boundaries">
+  <div class="panel-header">
+    <h3><i class="fa-solid fa-draw-polygon"></i> Territory Zones</h3>
+    <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-body">
+    <p style="font-size:12px; color:#8b949e;">Draw closed territorial zones and sector perimeters.</p>
+    <div class="input-row">
+      <button class="btn" id="btn-draw-poly" onclick="togglePolyDrawing()" style="flex:1;">
+        <i class="fa-solid fa-draw-polygon"></i> Draw Sector
+      </button>
+      <button class="btn btn-danger" onclick="clearActivePoly()"><i class="fa-solid fa-trash"></i> Clear</button>
+    </div>
+    <div class="input-group">
+      <label>Zone Name & Color</label>
+      <input type="text" id="zone-name" placeholder="e.g. Alliance Sector 4" value="Alliance Territory" />
+      <input type="color" id="zone-color" value="#00ffcc" style="height:36px; cursor:pointer;" />
+    </div>
+    <button class="btn" onclick="saveActiveZone()" style="background:var(--accent-cyan); color:#000; font-weight:bold;">
+      <i class="fa-solid fa-floppy-disk"></i> Save Territory Zone
+    </button>
+    <div id="saved-zones-list" style="display:flex; flex-direction:column; gap:8px; margin-top:12px;"></div>
+  </div>
+</div>
+
+<!-- SIDE PANEL: PINS / MARKERS -->
+<div class="side-panel collapsed" id="panel-pins">
+  <div class="panel-header">
+    <h3><i class="fa-solid fa-location-dot"></i> Tactical Markers</h3>
+    <button class="btn btn-danger" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-body">
+    <div class="input-group">
+      <label>Jump to Coordinates</label>
+      <div class="input-row">
+        <input type="number" id="jump-x" placeholder="X" min="0" max="1000" />
+        <input type="number" id="jump-y" placeholder="Y" min="0" max="1000" />
+        <button class="btn" onclick="jumpToCoords()"><i class="fa-solid fa-crosshairs"></i></button>
+      </div>
+    </div>
+    <div id="saved-pins-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+</div>
+
+<!-- EXPORT / IMPORT MODAL -->
+<div class="modal" id="data-modal">
+  <div class="modal-content">
+    <h3 style="font-family:var(--font-mono); color:var(--accent-cyan);"><i class="fa-solid fa-share-nodes"></i> Alliance Data Hub</h3>
+    <p style="font-size:12px; color:#8b949e;">Export map data to share march paths, territory boundaries, and pins with your alliance team.</p>
     
-    <!-- Zone Preset Selector -->
-    <select id="drawPresetSelect" onchange="updateDrawingPreset()" class="bg-black/60 border border-apoc-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-apoc-green">
-      <option value="alliance">Alliance Territory (Cyan)</option>
-      <option value="danger">Enemy / Danger Zone (Red)</option>
-      <option value="infection">Quarantine / Infection (Lime)</option>
-      <option value="resource">Resource Sector (Gold)</option>
-      <option value="neutral">Neutral Zone (White)</option>
-    </select>
-
-    <div class="h-4 w-px bg-apoc-border"></div>
-
-    <button onclick="finishPolygonDrawing()" class="px-2.5 py-1 bg-apoc-green/20 border border-apoc-green text-apoc-green hover:bg-apoc-green/30 rounded font-bold transition">
-      <i class="fa-solid fa-check mr-1"></i> FINISH
-    </button>
-    <button onclick="cancelDrawing()" class="px-2.5 py-1 bg-apoc-red/20 border border-apoc-red text-apoc-red hover:bg-apoc-red/30 rounded font-bold transition">
-      <i class="fa-solid fa-xmark mr-1"></i> CANCEL
-    </button>
-  </div>
-
-  <!-- Jump To Coordinates Widget -->
-  <div id="jumpWidget" class="hidden absolute top-16 left-4 z-[1000] w-72 bg-apoc-panel/95 border border-apoc-border rounded-xl p-4 shadow-2xl backdrop-blur-md">
-    <div class="flex items-center justify-between mb-3 border-b border-apoc-border/60 pb-2">
-      <span class="font-orbitron text-xs font-bold text-apoc-cyan tracking-wider flex items-center gap-2">
-        <i class="fa-solid fa-location-crosshairs"></i> JUMP TO COORDINATES
-      </span>
-      <button onclick="toggleJumpWidget()" class="text-gray-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="grid grid-cols-2 gap-2 mb-3">
-      <div>
-        <label class="block text-[10px] font-mono text-gray-400 mb-1">X COORD (0-1000)</label>
-        <input type="number" id="jumpX" min="0" max="1000" placeholder="500" class="w-full bg-black/50 border border-apoc-border rounded px-2.5 py-1.5 text-xs font-mono text-apoc-cyan focus:outline-none focus:border-apoc-cyan">
-      </div>
-      <div>
-        <label class="block text-[10px] font-mono text-gray-400 mb-1">Y COORD (0-1000)</label>
-        <input type="number" id="jumpY" min="0" max="1000" placeholder="500" class="w-full bg-black/50 border border-apoc-border rounded px-2.5 py-1.5 text-xs font-mono text-apoc-cyan focus:outline-none focus:border-apoc-cyan">
+    <div class="input-group">
+      <label>Quick Clipboard Sync</label>
+      <div class="input-row">
+        <button class="btn" onclick="copyDataToClipboard()" style="flex:1;"><i class="fa-solid fa-copy"></i> Copy Data Code</button>
+        <button class="btn" onclick="pasteDataFromClipboard()" style="flex:1;"><i class="fa-solid fa-paste"></i> Paste & Load</button>
       </div>
     </div>
-    <button onclick="executeJump()" class="w-full py-2 bg-apoc-cyan/20 border border-apoc-cyan/60 hover:bg-apoc-cyan/30 text-apoc-cyan font-orbitron text-xs font-bold rounded transition">
-      LOCATE & PAN
-    </button>
-  </div>
 
-  <!-- Live Coordinate Tracker Footer Bar -->
-  <div class="absolute bottom-3 left-3 z-[1000] bg-apoc-panel/90 border border-apoc-border rounded-lg px-3 py-1.5 backdrop-blur-md flex items-center gap-3 font-mono text-xs shadow-lg">
-    <div class="w-2 h-2 rounded-full bg-apoc-green animate-ping"></div>
-    <span class="text-gray-400">CURSOR:</span>
-    <span id="liveCoords" class="text-apoc-green font-bold tracking-widest">X: 000 | Y: 000</span>
-  </div>
+    <div class="input-group">
+      <label>File Export / Import</label>
+      <div class="input-row">
+        <button class="btn" onclick="exportJSONFile()" style="flex:1;"><i class="fa-solid fa-download"></i> Download JSON</button>
+        <input type="file" id="file-import" accept=".json" onchange="importJSONFile(event)" style="display:none;" />
+        <button class="btn" onclick="document.getElementById('file-import').click()" style="flex:1;"><i class="fa-solid fa-upload"></i> Upload JSON</button>
+      </div>
+    </div>
 
-  <!-- Sidebar Drawer -->
-  <div id="sidebar" class="absolute top-14 right-0 bottom-0 w-80 md:w-96 bg-apoc-panel/95 border-l border-apoc-border z-[1000] transition-transform duration-300 translate-x-full backdrop-blur-md flex flex-col shadow-2xl">
+    <button class="btn btn-danger" onclick="closeDataModal()" style="margin-top:8px;">Close</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // --- MAP CONFIGURATION (1000x1000 Canvas) ---
+  const MAP_SIZE = 1000;
+  const bounds = [[0, 0], [MAP_SIZE, MAP_SIZE]];
+
+  const map = L.map('map', {
+    crs: L.CRS.Simple,
+    maxZoom: 4,
+    minZoom: -1,
+    maxBounds: bounds,
+    attributionControl: false
+  });
+
+  // Load Map Graphic
+  L.imageOverlay('map.png', bounds).addTo(map);
+  map.fitBounds(bounds);
+
+  // Grid Lines (100px Intervals)
+  for (let i = 0; i <= MAP_SIZE; i += 100) {
+    L.polyline([[0, i], [MAP_SIZE, i]], { color: 'rgba(255,255,255,0.15)', weight: 1 }).addTo(map);
+    L.polyline([[i, 0], [i, MAP_SIZE]], { color: 'rgba(255,255,255,0.15)', weight: 1 }).addTo(map);
+  }
+
+  // --- STATE STORAGE ---
+  let state = {
+    pins: JSON.parse(localStorage.getItem('asylum_pins')) || [
+      { id: '1', name: 'Central Base', x: 500, y: 500, cat: 'base' }
+    ],
+    zones: JSON.parse(localStorage.getItem('asylum_zones')) || [],
+    paths: JSON.parse(localStorage.getItem('asylum_paths')) || []
+  };
+
+  function saveState() {
+    localStorage.setItem('asylum_pins', JSON.stringify(state.pins));
+    localStorage.setItem('asylum_zones', JSON.stringify(state.zones));
+    localStorage.setItem('asylum_paths', JSON.stringify(state.paths));
+    renderAll();
+  }
+
+  // --- HUD TRACKER & CLICK MARKER ---
+  const hudCoords = document.getElementById('hud-coords');
+  let clickMarker = null;
+
+  map.on('mousemove', function(e) {
+    const x = Math.round(e.latlng.lng);
+    const y = Math.round(e.latlng.lat);
+    hudCoords.innerText = `X: ${x.toString().padStart(3,'0')} | Y: ${y.toString().padStart(3,'0')}`;
+  });
+
+  map.on('click', function(e) {
+    if (isPathDrawing || isPolyDrawing) return;
+    const x = Math.round(e.latlng.lng);
+    const y = Math.round(e.latlng.lat);
+
+    if (clickMarker) map.removeLayer(clickMarker);
+    clickMarker = L.marker([y, x]).addTo(map);
     
-    <!-- Sidebar Header Tabs -->
-    <div class="p-3 border-b border-apoc-border/80 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <button id="tabPoiBtn" onclick="switchSidebarTab('poi')" class="px-3 py-1 rounded bg-apoc-green/20 border border-apoc-green text-apoc-green font-orbitron text-xs font-bold transition">
-          <i class="fa-solid fa-location-dot mr-1"></i> POI MARKERS
-        </button>
-        <button id="tabBoundsBtn" onclick="switchSidebarTab('bounds')" class="px-3 py-1 rounded bg-black/40 border border-apoc-border text-gray-400 hover:text-white font-orbitron text-xs font-bold transition">
-          <i class="fa-solid fa-vector-square mr-1"></i> TERRITORIES
-        </button>
+    clickMarker.bindPopup(`
+      <div style="font-family:var(--font-mono); text-align:center;">
+        <b>Target Coordinates</b><br>X: ${x} | Y: ${y}<br>
+        <button class="btn" style="width:100%; margin-top:6px;" onclick="addPinFromClick(${x}, ${y})">Add Marker</button>
       </div>
-      <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white p-1">
-        <i class="fa-solid fa-xmark text-sm"></i>
-      </button>
-    </div>
+    `).openPopup();
+  });
 
-    <!-- POI Tab Content -->
-    <div id="tabPoiContent" class="flex-1 flex flex-col overflow-hidden">
-      <div class="p-3 border-b border-apoc-border/60 bg-black/20">
-        <div class="relative mb-2">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-gray-500"></i>
-          <input type="text" id="searchPins" onkeyup="filterSidebarPins()" placeholder="Search location or category..." class="w-full bg-black/60 border border-apoc-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-apoc-green font-sans">
-        </div>
-        <div class="flex items-center justify-between text-[11px] font-mono text-gray-400">
-          <span id="pinCount">0 MARKERS FOUND</span>
-          <button onclick="resetDemoData()" class="text-apoc-red hover:underline">RESET DEMO DATA</button>
-        </div>
-      </div>
-      <div id="sidebarList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
-    </div>
+  function addPinFromClick(x, y) {
+    const name = prompt("Marker Name:", "New Target");
+    if (!name) return;
+    state.pins.push({ id: Date.now().toString(), name: name, x: x, y: y, cat: 'target' });
+    if (clickMarker) map.removeLayer(clickMarker);
+    saveState();
+  }
 
-    <!-- Boundaries Tab Content -->
-    <div id="tabBoundsContent" class="hidden flex-1 flex flex-col overflow-hidden">
-      <div class="p-3 border-b border-apoc-border/60 bg-black/20 flex items-center justify-between">
-        <span id="boundaryCount" class="text-[11px] font-mono text-gray-400">0 TERRITORIES DEFINED</span>
-        <button onclick="toggleDrawMode()" class="px-2.5 py-1 bg-apoc-green/20 border border-apoc-green/60 text-apoc-green text-xs font-mono font-bold rounded hover:bg-apoc-green/30 transition">
-          + DRAW NEW ZONE
-        </button>
-      </div>
-      <div id="sidebarBoundaryList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
-    </div>
+  // --- TACTICAL PATH PLOTTER ENGINE ---
+  let isPathDrawing = false;
+  let activePathCoords = [];
+  let tempPathLayer = L.layerGroup().addTo(map);
 
-    <!-- Sidebar Footer -->
-    <div class="p-3 border-t border-apoc-border/80 bg-black/40 text-center">
-      <p class="text-[11px] text-gray-400 font-sans">
-        <i class="fa-solid fa-mouse-pointer text-apoc-green mr-1"></i> Click map to drop pin or draw territory polygon.
-      </p>
-    </div>
-  </div>
+  function togglePathDrawing() {
+    isPathDrawing = !isPathDrawing;
+    const btn = document.getElementById('btn-draw-path');
+    btn.classList.toggle('active', isPathDrawing);
+    if (isPathDrawing) {
+      map.getContainer().style.cursor = 'crosshair';
+    } else {
+      map.getContainer().style.cursor = '';
+    }
+  }
 
-  <!-- Leaflet JavaScript -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  map.on('click', function(e) {
+    if (!isPathDrawing) return;
+    const x = Math.round(e.latlng.lng);
+    const y = Math.round(e.latlng.lat);
+    activePathCoords.push([y, x]);
+    renderTempPath();
+  });
 
-  <script>
-    // Map Grid Configuration
-    const MAP_SIZE = 1000;
-    const bounds = [[0, 0], [MAP_SIZE, MAP_SIZE]];
+  function renderTempPath() {
+    tempPathLayer.clearLayers();
+    if (activePathCoords.length === 0) return;
 
-    // Define Marker Categories
-    const CATEGORIES = {
-      safehouse: { name: "Safehouses", icon: "fa-shield-halved", color: "badge-safehouse", key: "safehouse" },
-      loot: { name: "Loot & Supplies", icon: "fa-box-archive", color: "badge-loot", key: "loot" },
-      boss: { name: "Bosses & Infection", icon: "fa-skull-crossbones", color: "badge-boss", key: "boss" },
-      quest: { name: "Quests & Waypoints", icon: "fa-flag", color: "badge-quest", key: "quest" },
-      custom: { name: "Custom User Pins", icon: "fa-location-dot", color: "badge-custom", key: "custom" }
-    };
+    const color = document.getElementById('path-color').value;
+    const style = document.getElementById('path-style').value;
 
-    // Boundary Preset Styles
-    const BOUNDARY_PRESETS = {
-      alliance: { name: "Alliance Territory", stroke: "#00e5ff", fill: "#00e5ff", fillOpacity: 0.25, strokeWidth: 2.5, dashArray: null },
-      danger: { name: "Enemy / Danger Zone", stroke: "#ff3366", fill: "#ff3366", fillOpacity: 0.3, strokeWidth: 2.5, dashArray: null },
-      infection: { name: "Quarantine / Infection", stroke: "#00ff9d", fill: "#00ff9d", fillOpacity: 0.35, strokeWidth: 2, dashArray: "6, 6" },
-      resource: { name: "Resource Sector", stroke: "#ffcc00", fill: "#ffcc00", fillOpacity: 0.25, strokeWidth: 2, dashArray: null },
-      neutral: { name: "Neutral Zone", stroke: "#ffffff", fill: "#888888", fillOpacity: 0.15, strokeWidth: 1.5, dashArray: "4, 4" }
-    };
+    const polyline = L.polyline(activePathCoords, {
+      color: color, weight: 3, opacity: 0.9,
+      className: style === 'animated' ? 'animated-path' : ''
+    }).addTo(tempPathLayer);
 
-    // Initial Default Data
-    const initialMarkers = [
-      { id: 1, name: "Central Refuge", category: "safehouse", coords: [500, 500], desc: "Main fortified survivor sanctuary. Safe zone trading hub." },
-      { id: 2, name: "West Outpost", category: "safehouse", coords: [300, 150], desc: "Small barricaded watchtower overlooking Western Wastes." },
-      { id: 3, name: "Summit Shelter", category: "safehouse", coords: [850, 800], desc: "High-altitude bunker with radio backup power." },
-      { id: 4, name: "Military Armory", category: "loot", coords: [720, 350], desc: "High-grade weapons and ammunition crates." },
-      { id: 5, name: "Medical Depot", category: "loot", coords: [420, 780], desc: "Contains rare antibiotics and infection suppressor shots." },
-      { id: 6, name: "Plague Abomination", category: "boss", coords: [800, 200], desc: "Extreme biological threat level. High radiation output." },
-      { id: 7, name: "Radio Tower Alpha", category: "quest", coords: [900, 450], desc: "Repair transmission array to call for rescue drops." }
-    ];
+    activePathCoords.forEach((pt, i) => {
+      L.circleMarker(pt, { radius: 4, color: color, fillColor: '#000', fillOpacity: 1 }).addTo(tempPathLayer);
+    });
+  }
 
-    const initialBoundaries = [
-      {
-        id: "b1",
-        name: "Blood Hunters Territory",
-        preset: "alliance",
-        points: [[400, 400], [400, 650], [650, 650], [650, 400]],
-        desc: "Primary claim held by the Blood Hunters Alliance syndicate."
-      },
-      {
-        id: "b2",
-        name: "Biohazard Hotspot Alpha",
-        preset: "infection",
-        points: [[700, 100], [750, 300], [900, 280], [850, 100]],
-        desc: "Level 4 airborne pathogen contamination zone."
-      }
-    ];
+  function clearCurrentPath() {
+    activePathCoords = [];
+    tempPathLayer.clearLayers();
+  }
 
-    // 1. Initialize Map on Flat Simple CRS
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: -1,
-      maxZoom: 3,
-      zoomControl: false,
-      maxBounds: bounds,
-      maxBoundsViscosity: 0.8
+  function saveActivePath() {
+    if (activePathCoords.length < 2) { alert('Plot at least 2 points to save a path.'); return; }
+    const name = document.getElementById('path-name').value || 'Tactical Path';
+    const color = document.getElementById('path-color').value;
+    const style = document.getElementById('path-style').value;
+
+    state.paths.push({
+      id: Date.now().toString(),
+      name: name,
+      color: color,
+      style: style,
+      coords: [...activePathCoords]
     });
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    clearCurrentPath();
+    if (isPathDrawing) togglePathDrawing();
+    saveState();
+  }
 
-    // Synthesize Tactical SVG Grid Background
-    const svgMapBg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${MAP_SIZE}" height="${MAP_SIZE}" viewBox="0 0 ${MAP_SIZE} ${MAP_SIZE}">
-        <rect width="${MAP_SIZE}" height="${MAP_SIZE}" fill="#0b0e11"/>
-        <g stroke="#1a232c" stroke-width="2">
-          ${Array.from({length: 10}, (_, i) => `<line x1="0" y1="${i*100}" x2="1000" y2="${i*100}"/><line x1="${i*100}" y1="0" x2="${i*100}" y2="1000"/>`).join('')}
-        </g>
-        <g stroke="#263545" stroke-width="1" stroke-dasharray="4,4">
-          ${Array.from({length: 50}, (_, i) => `<line x1="0" y1="${i*20}" x2="1000" y2="${i*20}"/><line x1="${i*20}" y1="0" x2="${i*20}" y2="1000"/>`).join('')}
-        </g>
-        <text x="50" y="70" fill="#2a3d50" font-family="monospace" font-size="28" font-weight="bold">SECTOR A-1</text>
-        <text x="550" y="70" fill="#2a3d50" font-family="monospace" font-size="28" font-weight="bold">SECTOR A-2</text>
-        <text x="50" y="570" fill="#2a3d50" font-family="monospace" font-size="28" font-weight="bold">SECTOR B-1</text>
-        <text x="550" y="570" fill="#2a3d50" font-family="monospace" font-size="28" font-weight="bold">SECTOR B-2</text>
-        <circle cx="500" cy="500" r="180" fill="none" stroke="#ff3366" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.25"/>
-        <circle cx="500" cy="500" r="350" fill="none" stroke="#00ff9d" stroke-width="1" opacity="0.15"/>
-      </svg>
-    `;
-    const mapBgUrl = 'data:image/svg+xml;base64,' + btoa(svgMapBg);
-    
-    const imageOverlay = L.imageOverlay('map.png', bounds, {
-      errorCallback: function() { this.setUrl(mapBgUrl); }
-    }).addTo(map);
+  // --- AUTOMATED PATTERN GENERATOR ---
+  function generatePattern() {
+    const type = document.getElementById('pattern-type').value;
+    const cx = parseInt(document.getElementById('pat-x').value) || 500;
+    const cy = parseInt(document.getElementById('pat-y').value) || 500;
+    const size = parseInt(document.getElementById('pat-size').value) || 200;
+    const passes = parseInt(document.getElementById('pat-passes').value) || 4;
 
-    const testImg = new Image();
-    testImg.src = 'map.png';
-    testImg.onerror = () => imageOverlay.setUrl(mapBgUrl);
+    activePathCoords = [];
 
-    map.fitBounds(bounds);
-
-    // Grid Overlay Lines (100px)
-    const gridLayer = L.layerGroup().addTo(map);
-    for (let i = 0; i <= MAP_SIZE; i += 100) {
-      L.polyline([[0, i], [MAP_SIZE, i]], {
-        color: i % 500 === 0 ? 'rgba(0, 255, 157, 0.3)' : 'rgba(255, 255, 255, 0.08)',
-        weight: i % 500 === 0 ? 1.5 : 0.8
-      }).addTo(gridLayer);
-
-      L.polyline([[i, 0], [i, MAP_SIZE]], {
-        color: i % 500 === 0 ? 'rgba(0, 255, 157, 0.3)' : 'rgba(255, 255, 255, 0.08)',
-        weight: i % 500 === 0 ? 1.5 : 0.8
-      }).addTo(gridLayer);
-
-      if (i > 0 && i < MAP_SIZE) {
-        L.marker([15, i], {
-          icon: L.divIcon({ className: 'text-[9px] font-mono text-gray-500 font-bold', html: `X:${i}`, iconSize: [40, 12] }),
-          interactive: false
-        }).addTo(gridLayer);
-
-        L.marker([i, 15], {
-          icon: L.divIcon({ className: 'text-[9px] font-mono text-gray-500 font-bold', html: `Y:${i}`, iconSize: [40, 12] }),
-          interactive: false
-        }).addTo(gridLayer);
-      }
-    }
-
-    // Layer Groups
-    const categoryLayers = {
-      safehouse: L.layerGroup().addTo(map),
-      loot: L.layerGroup().addTo(map),
-      boss: L.layerGroup().addTo(map),
-      quest: L.layerGroup().addTo(map),
-      custom: L.layerGroup().addTo(map),
-      boundaries: L.layerGroup().addTo(map)
-    };
-
-    const layerControls = {
-      '<span class="text-apoc-green"><i class="fa-solid fa-shield-halved mr-1"></i> Safehouses</span>': categoryLayers.safehouse,
-      '<span class="text-apoc-gold"><i class="fa-solid fa-box-archive mr-1"></i> Loot Caches</span>': categoryLayers.loot,
-      '<span class="text-apoc-red"><i class="fa-solid fa-skull-crossbones mr-1"></i> Bosses & Infected</span>': categoryLayers.boss,
-      '<span class="text-apoc-cyan"><i class="fa-solid fa-flag mr-1"></i> Quests & Waypoints</span>': categoryLayers.quest,
-      '<span class="text-apoc-purple"><i class="fa-solid fa-location-dot mr-1"></i> Custom Pins</span>': categoryLayers.custom,
-      '<span class="text-white"><i class="fa-solid fa-draw-polygon mr-1"></i> Territories & Zones</span>': categoryLayers.boundaries
-    };
-
-    L.control.layers(null, layerControls, { collapsed: false, position: 'topright' }).addTo(map);
-
-    // Master State Storage
-    let markersData = [...initialMarkers, ...JSON.parse(localStorage.getItem('last_asylum_custom_pins') || '[]')];
-    let boundariesData = [...initialBoundaries, ...JSON.parse(localStorage.getItem('last_asylum_boundaries') || '[]')];
-
-    function renderMarkers() {
-      Object.keys(categoryLayers).forEach(k => { if (k !== 'boundaries') categoryLayers[k].clearLayers(); });
-
-      markersData.forEach(item => {
-        const cat = CATEGORIES[item.category] || CATEGORIES.custom;
-        const icon = L.divIcon({
-          className: '',
-          html: `<div class="custom-badge ${cat.color}"><i class="fa-solid ${cat.icon}"></i></div>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
-        });
-
-        const marker = L.marker(item.coords, { icon: icon });
-        const popupHtml = `
-          <div class="p-2 min-w-[200px]">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold uppercase text-white font-orbitron">${item.name}</span>
-            </div>
-            <div class="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase mb-2 ${cat.color} text-black">
-              ${cat.name}
-            </div>
-            <p class="text-xs text-gray-300 mb-3 font-sans">${item.desc || 'No description provided.'}</p>
-            <div class="flex items-center justify-between pt-2 border-t border-apoc-border text-[11px] font-mono">
-              <span class="text-apoc-cyan">X: ${item.coords[1]} | Y: ${item.coords[0]}</span>
-              <button onclick="copyCoords(${item.coords[1]}, ${item.coords[0]})" class="text-gray-400 hover:text-white">
-                <i class="fa-regular fa-copy"></i> Copy
-              </button>
-            </div>
-          </div>
-        `;
-
-        marker.bindPopup(popupHtml);
-        const layer = categoryLayers[item.category] || categoryLayers.custom;
-        marker.addTo(layer);
-        item.leafletMarker = marker;
-      });
-
-      updateSidebarPOI();
-    }
-
-    // Render Boundaries
-    function renderBoundaries() {
-      categoryLayers.boundaries.clearLayers();
-
-      boundariesData.forEach(b => {
-        const preset = BOUNDARY_PRESETS[b.preset] || BOUNDARY_PRESETS.neutral;
-        
-        const polygon = L.polygon(b.points, {
-          color: preset.stroke,
-          fillColor: preset.fill,
-          fillOpacity: preset.fillOpacity,
-          weight: preset.strokeWidth,
-          dashArray: preset.dashArray
-        });
-
-        // Compute Bounding Box Coordinates for Tooltip / Popup
-        const lats = b.points.map(p => p[0]);
-        const lngs = b.points.map(p => p[1]);
-        const minY = Math.min(...lats), maxY = Math.max(...lats);
-        const minX = Math.min(...lngs), maxX = Math.max(...lngs);
-
-        polygon.bindTooltip(`<b>${b.name}</b><br>Preset: ${preset.name}`, { className: 'tactical-tooltip', sticky: true });
-
-        const popupHtml = `
-          <div class="p-2 min-w-[210px] font-sans">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-orbitron font-bold text-xs text-white">${b.name}</span>
-            </div>
-            <div class="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase mb-2" style="background:${preset.stroke}; color:#000;">
-              ${preset.name}
-            </div>
-            <p class="text-xs text-gray-300 mb-2">${b.desc || 'Tactical territory zone.'}</p>
-            <div class="text-[10px] font-mono text-gray-400 border-t border-apoc-border pt-2 mb-2">
-              BOUNDS: X[${minX}-${maxX}] | Y[${minY}-${maxY}]
-            </div>
-            <div class="flex gap-2">
-              <button onclick="deleteBoundary('${b.id}')" class="w-full py-1 bg-apoc-red/20 border border-apoc-red/60 text-apoc-red text-xs font-mono font-bold rounded hover:bg-apoc-red/30">
-                DELETE ZONE
-              </button>
-            </div>
-          </div>
-        `;
-
-        polygon.bindPopup(popupHtml);
-        polygon.addTo(categoryLayers.boundaries);
-        b.leafletPoly = polygon;
-      });
-
-      updateSidebarBoundaries();
-    }
-
-    // Interactive Polygon Drawing System State
-    let isDrawing = false;
-    let currentDrawingPoints = [];
-    let currentPolyline = null;
-    let tempVertexMarkers = [];
-
-    function toggleDrawMode() {
-      if (isDrawing) {
-        cancelDrawing();
-      } else {
-        isDrawing = true;
-        currentDrawingPoints = [];
-        document.getElementById('map').classList.add('drawing-active');
-        document.getElementById('drawHud').classList.remove('hidden');
-        document.getElementById('drawModeBtn').classList.add('border-apoc-green', 'bg-apoc-green/20');
-      }
-    }
-
-    function updateDrawingPreset() {
-      if (currentPolyline) {
-        const presetKey = document.getElementById('drawPresetSelect').value;
-        const p = BOUNDARY_PRESETS[presetKey];
-        currentPolyline.setStyle({ color: p.stroke });
-      }
-    }
-
-    map.on('click', function(e) {
-      if (isDrawing) {
-        const x = Math.round(e.latlng.lng);
-        const y = Math.round(e.latlng.lat);
-        currentDrawingPoints.push([y, x]);
-
-        // Vertex Marker
-        const vertexIcon = L.divIcon({
-          className: '',
-          html: `<div class="custom-badge badge-vertex"><i class="fa-solid fa-circle text-[8px]"></i></div>`,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
-        });
-        const vm = L.marker([y, x], { icon: vertexIcon }).addTo(map);
-        tempVertexMarkers.push(vm);
-
-        // Update Drawing Guide Polyline
-        const presetKey = document.getElementById('drawPresetSelect').value;
-        const p = BOUNDARY_PRESETS[presetKey];
-
-        if (currentPolyline) {
-          currentPolyline.setLatLngs(currentDrawingPoints);
+    if (type === 'lawnmower') {
+      const step = size / passes;
+      let startX = cx - size/2;
+      let startY = cy - size/2;
+      for (let i = 0; i <= passes; i++) {
+        let currentY = startY + (i * step);
+        if (i % 2 === 0) {
+          activePathCoords.push([currentY, startX]);
+          activePathCoords.push([currentY, startX + size]);
         } else {
-          currentPolyline = L.polyline(currentDrawingPoints, { color: p.stroke, weight: 2, dashArray: '4, 4' }).addTo(map);
+          activePathCoords.push([currentY, startX + size]);
+          activePathCoords.push([currentY, startX]);
         }
-      } else {
-        // Normal Pin Drop Handler
-        handleMapPinDrop(e);
       }
+    } else if (type === 'rings') {
+      const radStep = (size / 2) / passes;
+      for (let r = 1; r <= passes; r++) {
+        const radius = r * radStep;
+        for (let a = 0; a <= 360; a += 30) {
+          const rad = (a * Math.PI) / 180;
+          activePathCoords.push([cy + radius * Math.sin(rad), cx + radius * Math.cos(rad)]);
+        }
+      }
+    } else if (type === 'starburst') {
+      const radius = size / 2;
+      for (let a = 0; a < 360; a += (360 / passes)) {
+        const rad = (a * Math.PI) / 180;
+        activePathCoords.push([cy, cx]);
+        activePathCoords.push([cy + radius * Math.sin(rad), cx + radius * Math.cos(rad)]);
+      }
+    }
+
+    renderTempPath();
+  }
+
+  function plotBatchCoordinates() {
+    const str = document.getElementById('batch-coords').value;
+    const regex = /\[?\s*(\d+)\s*,\s*(\d+)\s*\]?/g;
+    let match;
+    activePathCoords = [];
+    while ((match = regex.exec(str)) !== null) {
+      activePathCoords.push([parseInt(match[2]), parseInt(match[1])]); // Leaflet uses [Y, X]
+    }
+    if (activePathCoords.length > 0) {
+      renderTempPath();
+    } else {
+      alert('No valid coordinates found. Format: [100, 200], [300, 400]');
+    }
+  }
+
+  // --- TERRITORY POLYGON ENGINE ---
+  let isPolyDrawing = false;
+  let activePolyCoords = [];
+  let tempPolyLayer = L.layerGroup().addTo(map);
+
+  function togglePolyDrawing() {
+    isPolyDrawing = !isPolyDrawing;
+    document.getElementById('btn-draw-poly').classList.toggle('active', isPolyDrawing);
+  }
+
+  map.on('click', function(e) {
+    if (!isPolyDrawing) return;
+    const x = Math.round(e.latlng.lng);
+    const y = Math.round(e.latlng.lat);
+    activePolyCoords.push([y, x]);
+    renderTempPoly();
+  });
+
+  function renderTempPoly() {
+    tempPolyLayer.clearLayers();
+    if (activePolyCoords.length === 0) return;
+    const color = document.getElementById('zone-color').value;
+    L.polygon(activePolyCoords, { color: color, fillColor: color, fillOpacity: 0.25 }).addTo(tempPolyLayer);
+  }
+
+  function clearActivePoly() {
+    activePolyCoords = [];
+    tempPolyLayer.clearLayers();
+  }
+
+  function saveActiveZone() {
+    if (activePolyCoords.length < 3) { alert('Click at least 3 points to define a territory sector.'); return; }
+    state.zones.push({
+      id: Date.now().toString(),
+      name: document.getElementById('zone-name').value || 'Territory Sector',
+      color: document.getElementById('zone-color').value,
+      coords: [...activePolyCoords]
+    });
+    clearActivePoly();
+    if (isPolyDrawing) togglePolyDrawing();
+    saveState();
+  }
+
+  // --- RENDER ALL MAP ELEMENTS ---
+  let mapElementsLayer = L.layerGroup().addTo(map);
+
+  function renderAll() {
+    mapElementsLayer.clearLayers();
+
+    // 1. Render Pins
+    state.pins.forEach(pin => {
+      L.marker([pin.y, pin.x]).addTo(mapElementsLayer)
+       .bindPopup(`<b>${pin.name}</b><br>X: ${pin.x} | Y: ${pin.y}`);
     });
 
-    // Double-click to finish drawing polygon
-    map.on('dblclick', function(e) {
-      if (isDrawing) {
-        L.DomEvent.stopPropagation(e);
-        finishPolygonDrawing();
-      }
-    });
-
-    function finishPolygonDrawing() {
-      if (currentDrawingPoints.length < 3) {
-        alert("A boundary polygon requires at least 3 vertex points!");
-        return;
-      }
-
-      const presetKey = document.getElementById('drawPresetSelect').value;
-      const zoneName = prompt("Enter Zone / Territory Title:", "Sector Territory Zone");
-      if (!zoneName) {
-        cancelDrawing();
-        return;
-      }
-
-      const newBoundary = {
-        id: "b_" + Date.now(),
-        name: zoneName,
-        preset: presetKey,
-        points: [...currentDrawingPoints],
-        desc: "Custom created boundary zone."
-      };
-
-      boundariesData.push(newBoundary);
-      
-      // Save to localStorage
-      const customBounds = JSON.parse(localStorage.getItem('last_asylum_boundaries') || '[]');
-      customBounds.push(newBoundary);
-      localStorage.setItem('last_asylum_boundaries', JSON.stringify(customBounds));
-
-      cancelDrawing();
-      renderBoundaries();
-    }
-
-    function cancelDrawing() {
-      isDrawing = false;
-      currentDrawingPoints = [];
-      document.getElementById('map').classList.remove('drawing-active');
-      document.getElementById('drawHud').classList.add('hidden');
-      document.getElementById('drawModeBtn').classList.remove('border-apoc-green', 'bg-apoc-green/20');
-
-      if (currentPolyline) map.removeLayer(currentPolyline);
-      currentPolyline = null;
-
-      tempVertexMarkers.forEach(m => map.removeLayer(m));
-      tempVertexMarkers = [];
-    }
-
-    function deleteBoundary(id) {
-      boundariesData = boundariesData.filter(b => b.id !== id);
-      
-      // Update LocalStorage
-      const customBounds = JSON.parse(localStorage.getItem('last_asylum_boundaries') || '[]').filter(b => b.id !== id);
-      localStorage.setItem('last_asylum_boundaries', JSON.stringify(customBounds));
-
-      renderBoundaries();
-    }
-
-    let tempMarker = null;
-
-    function handleMapPinDrop(e) {
-      const x = Math.round(e.latlng.lng);
-      const y = Math.round(e.latlng.lat);
-
-      if (tempMarker) map.removeLayer(tempMarker);
-
-      const tempIcon = L.divIcon({
-        className: '',
-        html: `<div class="custom-badge badge-custom animate-bounce"><i class="fa-solid fa-plus"></i></div>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-
-      tempMarker = L.marker([y, x], { icon: tempIcon }).addTo(map);
-
-      const popupForm = `
-        <div class="p-2 w-64 font-sans">
-          <div class="font-orbitron font-bold text-xs text-apoc-green mb-2 flex items-center justify-between">
-            <span>NEW LOCATION MARKER</span>
-            <span class="text-gray-400 font-mono">X:${x} Y:${y}</span>
-          </div>
-          <div class="space-y-2 mb-3">
-            <div>
-              <label class="block text-[10px] text-gray-400 font-mono mb-0.5">LOCATION TITLE</label>
-              <input type="text" id="newPinName" placeholder="e.g. Hidden Stash" class="w-full bg-black/60 border border-apoc-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-apoc-green">
-            </div>
-            <div>
-              <label class="block text-[10px] text-gray-400 font-mono mb-0.5">CATEGORY</label>
-              <select id="newPinCat" class="w-full bg-black/60 border border-apoc-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-apoc-green">
-                <option value="safehouse">Safehouse</option>
-                <option value="loot">Loot & Supplies</option>
-                <option value="boss">Boss / Danger Zone</option>
-                <option value="quest">Quest / Waypoint</option>
-                <option value="custom" selected>Custom Pin</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-[10px] text-gray-400 font-mono mb-0.5">NOTES</label>
-              <textarea id="newPinDesc" rows="2" placeholder="Tactical notes..." class="w-full bg-black/60 border border-apoc-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-apoc-green"></textarea>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="saveCustomPin(${x}, ${y})" class="flex-1 py-1.5 bg-apoc-green/20 border border-apoc-green/60 hover:bg-apoc-green/30 text-apoc-green font-bold text-xs rounded transition">
-              SAVE PIN
-            </button>
-            <button onclick="copyCoords(${x}, ${y})" class="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 text-xs rounded">
-              <i class="fa-regular fa-copy"></i>
-            </button>
-          </div>
+    // 2. Render Territory Zones
+    const zonesList = document.getElementById('saved-zones-list');
+    zonesList.innerHTML = '';
+    state.zones.forEach(zone => {
+      L.polygon(zone.coords, { color: zone.color, fillColor: zone.color, fillOpacity: 0.2 }).addTo(mapElementsLayer);
+      zonesList.innerHTML += `
+        <div class="list-item">
+          <div class="list-info" style="color:${zone.color};">${zone.name}</div>
+          <button class="btn btn-danger" onclick="deleteZone('${zone.id}')"><i class="fa-solid fa-trash"></i></button>
         </div>
       `;
-
-      tempMarker.bindPopup(popupForm).openPopup();
-    }
-
-    window.saveCustomPin = function(x, y) {
-      const name = document.getElementById('newPinName').value.trim() || `Pin [X:${x}, Y:${y}]`;
-      const category = document.getElementById('newPinCat').value;
-      const desc = document.getElementById('newPinDesc').value.trim();
-
-      const newPin = { id: Date.now(), name, category, coords: [y, x], desc };
-      markersData.push(newPin);
-
-      const savedCustom = JSON.parse(localStorage.getItem('last_asylum_custom_pins') || '[]');
-      savedCustom.push(newPin);
-      localStorage.setItem('last_asylum_custom_pins', JSON.stringify(savedCustom));
-
-      if (tempMarker) map.removeLayer(tempMarker);
-      renderMarkers();
-
-      map.panTo([y, x]);
-      setTimeout(() => { if (newPin.leafletMarker) newPin.leafletMarker.openPopup(); }, 300);
-    };
-
-    // Live Cursor Coordinate Tracking
-    const liveCoordsDiv = document.getElementById('liveCoords');
-    map.on('mousemove', function(e) {
-      const x = Math.max(0, Math.min(MAP_SIZE, Math.round(e.latlng.lng)));
-      const y = Math.max(0, Math.min(MAP_SIZE, Math.round(e.latlng.lat)));
-      liveCoordsDiv.innerText = `X: ${String(x).padStart(3, '0')} | Y: ${String(y).padStart(3, '0')}`;
     });
 
-    window.toggleJumpWidget = function() {
-      document.getElementById('jumpWidget').classList.toggle('hidden');
-    };
+    // 3. Render Paths
+    const pathsList = document.getElementById('saved-paths-list');
+    pathsList.innerHTML = '';
+    state.paths.forEach(p => {
+      L.polyline(p.coords, {
+        color: p.color, weight: 3, opacity: 0.9,
+        className: p.style === 'animated' ? 'animated-path' : ''
+      }).addTo(mapElementsLayer);
 
-    window.executeJump = function() {
-      const x = parseInt(document.getElementById('jumpX').value);
-      const y = parseInt(document.getElementById('jumpY').value);
+      pathsList.innerHTML += `
+        <div class="list-item">
+          <div class="list-info" style="color:${p.color};">${p.name}</div>
+          <button class="btn btn-danger" onclick="deletePath('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+    });
 
-      if (isNaN(x) || isNaN(y) || x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE) {
-        alert(`Please enter valid coordinates between 0 and ${MAP_SIZE}`);
-        return;
-      }
+    // Pins Side Panel List
+    const pinsList = document.getElementById('saved-pins-list');
+    pinsList.innerHTML = '';
+    state.pins.forEach(p => {
+      pinsList.innerHTML += `
+        <div class="list-item">
+          <div class="list-info"><b>${p.name}</b> [X:${p.x}, Y:${p.y}]</div>
+          <button class="btn btn-danger" onclick="deletePin('${p.id}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+    });
+  }
 
-      map.flyTo([y, x], 2, { duration: 1.2 });
-      toggleJumpWidget();
-    };
+  function deletePin(id) { state.pins = state.pins.filter(p => p.id !== id); saveState(); }
+  function deleteZone(id) { state.zones = state.zones.filter(z => z.id !== id); saveState(); }
+  function deletePath(id) { state.paths = state.paths.filter(p => p.id !== id); saveState(); }
 
-    window.copyCoords = function(x, y) {
-      const text = `[${y}, ${x}]`;
-      navigator.clipboard.writeText(text);
-      
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-12 right-4 z-[2000] bg-apoc-green text-black font-mono font-bold text-xs px-3 py-2 rounded shadow-xl';
-      toast.innerText = `COORDINATES COPIED: ${text}`;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
-    };
+  // --- UI TOGGLES ---
+  function togglePanel(id) {
+    document.querySelectorAll('.side-panel').forEach(p => p.classList.add('collapsed'));
+    document.getElementById(`panel-${id}`).classList.remove('collapsed');
+  }
+  function closePanels() {
+    document.querySelectorAll('.side-panel').forEach(p => p.classList.add('collapsed'));
+  }
 
-    window.toggleSidebar = function() {
-      document.getElementById('sidebar').classList.toggle('translate-x-full');
-    };
-
-    window.switchSidebarTab = function(tab) {
-      const poiBtn = document.getElementById('tabPoiBtn');
-      const boundsBtn = document.getElementById('tabBoundsBtn');
-      const poiContent = document.getElementById('tabPoiContent');
-      const boundsContent = document.getElementById('tabBoundsContent');
-
-      if (tab === 'poi') {
-        poiBtn.className = 'px-3 py-1 rounded bg-apoc-green/20 border border-apoc-green text-apoc-green font-orbitron text-xs font-bold transition';
-        boundsBtn.className = 'px-3 py-1 rounded bg-black/40 border border-apoc-border text-gray-400 hover:text-white font-orbitron text-xs font-bold transition';
-        poiContent.classList.remove('hidden');
-        boundsContent.classList.add('hidden');
-      } else {
-        boundsBtn.className = 'px-3 py-1 rounded bg-apoc-green/20 border border-apoc-green text-apoc-green font-orbitron text-xs font-bold transition';
-        poiBtn.className = 'px-3 py-1 rounded bg-black/40 border border-apoc-border text-gray-400 hover:text-white font-orbitron text-xs font-bold transition';
-        boundsContent.classList.remove('hidden');
-        poiContent.classList.add('hidden');
-      }
-    };
-
-    function updateSidebarPOI() {
-      const list = document.getElementById('sidebarList');
-      const searchVal = (document.getElementById('searchPins').value || '').toLowerCase();
-      list.innerHTML = '';
-
-      const filtered = markersData.filter(m => 
-        m.name.toLowerCase().includes(searchVal) || m.category.toLowerCase().includes(searchVal)
-      );
-
-      document.getElementById('pinCount').innerText = `${filtered.length} MARKERS FOUND`;
-
-      filtered.forEach(item => {
-        const cat = CATEGORIES[item.category] || CATEGORIES.custom;
-        const card = document.createElement('div');
-        card.className = 'p-3 rounded-lg bg-black/40 border border-apoc-border hover:border-apoc-green/50 cursor-pointer transition flex items-center justify-between group';
-        card.onclick = () => {
-          map.flyTo(item.coords, 2, { duration: 1 });
-          if (item.leafletMarker) item.leafletMarker.openPopup();
-          if (window.innerWidth < 768) toggleSidebar();
-        };
-
-        card.innerHTML = `
-          <div class="flex items-center gap-3">
-            <div class="w-7 h-7 rounded-full ${cat.color} flex items-center justify-center text-xs text-black font-bold shrink-0">
-              <i class="fa-solid ${cat.icon}"></i>
-            </div>
-            <div>
-              <h4 class="text-xs font-bold text-gray-200 group-hover:text-apoc-green transition">${item.name}</h4>
-              <p class="text-[10px] text-gray-400 font-mono">X: ${item.coords[1]} | Y: ${item.coords[0]}</p>
-            </div>
-          </div>
-          <i class="fa-solid fa-chevron-right text-xs text-gray-600 group-hover:text-apoc-green"></i>
-        `;
-        list.appendChild(card);
-      });
+  function jumpToCoords() {
+    const x = parseInt(document.getElementById('jump-x').value);
+    const y = parseInt(document.getElementById('jump-y').value);
+    if (!isNaN(x) && !isNaN(y)) {
+      map.setView([y, x], 2);
     }
+  }
 
-    function updateSidebarBoundaries() {
-      const list = document.getElementById('sidebarBoundaryList');
-      list.innerHTML = '';
+  // --- DATA MODAL & EXPORT/IMPORT ---
+  function openDataModal() { document.getElementById('data-modal').classList.add('active'); }
+  function closeDataModal() { document.getElementById('data-modal').classList.remove('active'); }
 
-      document.getElementById('boundaryCount').innerText = `${boundariesData.length} TERRITORIES DEFINED`;
+  function copyDataToClipboard() {
+    navigator.clipboard.writeText(JSON.stringify(state));
+    alert('Alliance Map Data copied to clipboard!');
+  }
 
-      boundariesData.forEach(b => {
-        const preset = BOUNDARY_PRESETS[b.preset] || BOUNDARY_PRESETS.neutral;
-        const card = document.createElement('div');
-        card.className = 'p-3 rounded-lg bg-black/40 border border-apoc-border hover:border-apoc-green/50 transition flex items-center justify-between group';
-        
-        card.innerHTML = `
-          <div class="cursor-pointer flex-1" onclick="focusBoundary('${b.id}')">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="w-2.5 h-2.5 rounded-full" style="background:${preset.stroke}"></span>
-              <h4 class="text-xs font-bold text-gray-200 group-hover:text-apoc-green font-orbitron">${b.name}</h4>
-            </div>
-            <p class="text-[10px] text-gray-400 font-mono uppercase">${preset.name}</p>
-          </div>
-          <button onclick="deleteBoundary('${b.id}')" class="text-gray-500 hover:text-apoc-red p-1">
-            <i class="fa-solid fa-trash-can text-xs"></i>
-          </button>
-        `;
-        list.appendChild(card);
-      });
+  function pasteDataFromClipboard() {
+    const str = prompt('Paste Alliance Map JSON Data:');
+    if (!str) return;
+    try {
+      state = JSON.parse(str);
+      saveState();
+      closeDataModal();
+      alert('Map Data loaded successfully!');
+    } catch(e) {
+      alert('Invalid Data Format');
     }
+  }
 
-    window.focusBoundary = function(id) {
-      const b = boundariesData.find(x => x.id === id);
-      if (b && b.leafletPoly) {
-        map.fitBounds(b.leafletPoly.getBounds());
-        b.leafletPoly.openPopup();
-        if (window.innerWidth < 768) toggleSidebar();
+  function exportJSONFile() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `last_asylum_map_data.json`;
+    a.click();
+  }
+
+  function importJSONFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        state = JSON.parse(evt.target.result);
+        saveState();
+        closeDataModal();
+        alert('Alliance Map File imported successfully!');
+      } catch(err) {
+        alert('Failed to read JSON file.');
       }
     };
+    reader.readAsText(file);
+  }
 
-    window.filterSidebarPins = function() {
-      updateSidebarPOI();
-    };
-
-    window.resetDemoData = function() {
-      if (confirm("Reset all custom markers and boundaries back to default demo state?")) {
-        localStorage.removeItem('last_asylum_custom_pins');
-        localStorage.removeItem('last_asylum_boundaries');
-        markersData = [...initialMarkers];
-        boundariesData = [...initialBoundaries];
-        renderMarkers();
-        renderBoundaries();
-      }
-    };
-
-    // Initial Execution
-    renderMarkers();
-    renderBoundaries();
-  </script>
+  // Initial Load
+  renderAll();
+</script>
 </body>
 </html>
